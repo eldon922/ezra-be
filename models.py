@@ -6,9 +6,10 @@ class User(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
-    password = db.Column(db.String(120), nullable=False)
+    password = db.Column(db.String(255), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
-    histories = db.relationship('History', back_populates='user')
+    created_at = db.Column(db.DateTime(timezone=True), server_default=db.func.current_timestamp())
+    transcriptions = db.relationship('Transcription', back_populates='user')
 
     def to_dict(self):
         return {
@@ -17,38 +18,50 @@ class User(db.Model):
             'is_admin': self.is_admin
         }
 
-class History(db.Model):
-    __tablename__ = 'histories'
+class Transcription(db.Model):
+    __tablename__ = 'transcriptions'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    document_path = db.Column(db.String(200), nullable=False)
-    status = db.Column(db.String(20), default='completed')
-    error_message = db.Column(db.String(200))
-    user = db.relationship('User', back_populates='histories')
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    audio_file_path = db.Column(db.String(255))
+    google_drive_url = db.Column(db.String(255))
+    txt_document_path = db.Column(db.String(255))
+    md_document_path = db.Column(db.String(255))
+    word_document_path = db.Column(db.String(255))
+    status = db.Column(db.String(20), default='pending')
+    created_at = db.Column(db.DateTime(timezone=True), server_default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime(timezone=True), server_default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+    user = db.relationship('User', back_populates='transcriptions')
 
     def to_dict(self):
         return {
             'id': self.id,
             'user_id': self.user_id,
-            'created_at': self.created_at.isoformat(),
-            'document_path': self.document_path,
+            'audio_file_path': self.audio_file_path,
+            'google_drive_url': self.google_drive_url,
+            'txt_document_path': self.txt_document_path,
+            'md_document_path': self.md_document_path,
+            'word_document_path': self.word_document_path,
             'status': self.status,
-            'error_message': self.error_message
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
         }
 
 class ErrorLog(db.Model):
     __tablename__ = 'error_logs'
 
     id = db.Column(db.Integer, primary_key=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    error_message = db.Column(db.String(200), nullable=False)
-    stack_trace = db.Column(db.String(1000))
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    transcription_id = db.Column(db.Integer, db.ForeignKey('transcriptions.id'))
+    error_message = db.Column(db.Text, nullable=False)
+    stack_trace = db.Column(db.Text)
+    created_at = db.Column(db.DateTime(timezone=True), server_default=db.func.current_timestamp())
 
     def to_dict(self):
         return {
             'id': self.id,
+            'user_id': self.user_id,
+            'transcription_id': self.transcription_id,
             'created_at': self.created_at.isoformat(),
             'error_message': self.error_message,
             'stack_trace': self.stack_trace

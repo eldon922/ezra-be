@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy.exc import SQLAlchemyError
 from database import db
-from models import User, History, ErrorLog
+from models import User, Transcription, ErrorLog
 from werkzeug.security import generate_password_hash
 
 admin = Blueprint('admin', __name__)
@@ -31,7 +31,7 @@ def add_user():
     data = request.json
     username = data.get('username')
     password = data.get('password')
-    is_admin = data.get('is_admin', False)
+    is_new_user_admin = data.get('is_admin', False)
 
     if not username or not password:
         return jsonify({"error": "Username and password are required"}), 400
@@ -39,7 +39,7 @@ def add_user():
     if User.query.filter_by(username=username).first():
         return jsonify({"error": "Username already exists"}), 400
 
-    new_user = User(username=username, password=generate_password_hash(password), is_admin=is_admin)
+    new_user = User(username=username, password=generate_password_hash(password), is_admin=is_new_user_admin)
     db.session.add(new_user)
     try:
         db.session.commit()
@@ -58,6 +58,9 @@ def delete_user(user_id):
     user = User.query.get(user_id)
     if not user:
         return jsonify({"error": "User not found"}), 404
+    
+    if user.is_admin:
+        return jsonify({"error": "User is admin"}), 404
 
     db.session.delete(user)
     try:
@@ -84,7 +87,7 @@ def get_all_transcriptions():
     if not is_admin(current_user):
         return jsonify({"error": "Admin access required"}), 403
 
-    transcriptions = History.query.order_by(History.created_at.desc()).limit(100).all()
+    transcriptions = Transcription.query.order_by(Transcription.created_at.desc()).limit(100).all()
     return jsonify([transcription.to_dict() for transcription in transcriptions]), 200
 
 @admin.route('/stats', methods=['GET'])
@@ -95,7 +98,7 @@ def get_stats():
         return jsonify({"error": "Admin access required"}), 403
 
     total_users = User.query.count()
-    total_transcriptions = History.query.count()
+    total_transcriptions = Transcription.query.count()
     total_errors = ErrorLog.query.count()
 
     return jsonify({

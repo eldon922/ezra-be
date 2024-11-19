@@ -11,9 +11,10 @@ CREATE TABLE users (
 CREATE TABLE transcriptions (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id),
-    file_name VARCHAR(255),
-    original_file_path VARCHAR(255),
-    transcription_text TEXT,
+    audio_file_path VARCHAR(255),
+    google_drive_url VARCHAR(255),
+    txt_document_path VARCHAR(255),
+    md_document_path VARCHAR(255),
     word_document_path VARCHAR(255),
     status VARCHAR(20) DEFAULT 'pending',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -24,6 +25,7 @@ CREATE TABLE transcriptions (
 CREATE TABLE error_logs (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id),
+    transcription_id INTEGER REFERENCES transcriptions(id),
     error_message TEXT,
     stack_trace TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

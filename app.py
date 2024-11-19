@@ -1,13 +1,11 @@
+import traceback
 from flask import Flask, request, jsonify, send_file
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
-from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-# from docx import Document
 import os
-from datetime import datetime
 from admin_routes import admin
 from drive_utils import download_from_drive  # Import the new function
-from models import User, History
+from models import User, Transcription, ErrorLog  # Change this import
 from dotenv import load_dotenv
 from database import db
 load_dotenv()  # Add this near the top of your app.py
@@ -42,51 +40,83 @@ def login():
 def process_audio():
     user = User.query.filter_by(username=get_jwt_identity()).first()
     audio_data = None
+    file_path = None
+    drive_url = None
+
     if 'file' in request.files:
         audio_file = request.files['file']
         audio_data = audio_file.read()
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], audio_file.filename)
+        with open(file_path, 'wb') as f:
+            f.write(audio_data)
     elif 'drive_link' in request.form:
-        drive_link = request.form['drive_link']
-        audio_data = download_from_drive(drive_link)
-    
+        drive_url = request.form['drive_link']
+        audio_data = download_from_drive(drive_url)
+
     if not audio_data:
         return jsonify({"error": "No audio data provided"}), 400
 
     try:
-        # Call ASR AI API
-        transcription = call_asr_api(audio_data)
-
-        # Generate Word document
-        doc_path = generate_word_document(transcription)
-
-        # Store document locally
-        local_path = store_locally(doc_path)
-
-        # Save to history
-        history = History(user_id=user.id, document_path=local_path)
-        db.session.add(history)
+        # Create transcription record
+        transcription = Transcription(
+            user_id=user.id,
+            audio_file_path=file_path,
+            google_drive_url=drive_url,
+            status='processing'
+        )
+        db.session.add(transcription)
         db.session.commit()
 
-        return jsonify({"message": "Processing complete", "document_url": f"/download/{os.path.basename(local_path)}"}), 200
+        # Generate documents
+        txt_path = call_asr_api(audio_data)
+        md_path = generate_md_document(txt_path)
+        word_path = generate_word_document(md_path)
+
+        # Update transcription record
+        transcription.word_document_path = word_path
+        transcription.txt_document_path = txt_path
+        transcription.md_document_path = md_path
+        transcription.status = 'completed'
+        db.session.commit()
+
+        return jsonify({
+            "message": "Processing complete",
+            "document_urls": {
+                "txt": f"/download/{os.path.basename(txt_path)}",
+                "md": f"/download/{os.path.basename(md_path)}",
+                "word": f"/download/{os.path.basename(word_path)}",
+            }
+        }), 200
+
     except Exception as e:
-        error_message = str(e)
-        history = History(user_id=user.id, status='error', error_message=error_message)
-        db.session.add(history)
+        # Log error
+        error_log = ErrorLog(
+            user_id=user.id,
+            transcription_id=transcription.id,
+            error_message=str(e),
+            stack_trace=traceback.format_exc()
+        )
+        transcription.status = 'error'
+        db.session.add(error_log)
         db.session.commit()
-        return jsonify({"error": error_message}), 500
+        return jsonify({"error": str(e)}), 500
 
-@app.route('/history', methods=['GET'])
+@app.route('/transcription', methods=['GET'])
 @jwt_required()
-def get_history():
+def get_transcription():
     user = User.query.filter_by(username=get_jwt_identity()).first()
-    user_history = History.query.filter_by(user_id=user.id).all()
+    transcriptions = Transcription.query.filter_by(user_id=user.id).all()
     return jsonify([{
-        "id": h.id,
-        "created_at": h.created_at,
-        "document_path": f"/download/{os.path.basename(h.document_path)}",
-        "status": h.status,
-        "error_message": h.error_message
-    } for h in user_history]), 200
+        "id": t.id,
+        "created_at": t.created_at,
+        "updated_at": t.updated_at,
+        "status": t.status,
+        "documents": {
+            "txt": f"/download/{os.path.basename(t.txt_document_path)}" if t.txt_document_path else None,
+            "md": f"/download/{os.path.basename(t.md_document_path)}" if t.md_document_path else None,
+            "word": f"/download/{os.path.basename(t.word_document_path)}" if t.word_document_path else None,
+        }
+    } for t in transcriptions]), 200
 
 @app.route('/download/<filename>', methods=['GET'])
 @jwt_required()
@@ -120,7 +150,7 @@ def get_logs():
     if not current_user.is_admin:
         return jsonify({"error": "Admin access required"}), 403
 
-    logs = History.query.filter_by(status='error').all()
+    logs = ErrorLog.query.filter_by(status='error').all()
     return jsonify([{
         "id": log.id,
         "user_id": log.user_id,
@@ -135,12 +165,18 @@ def call_asr_api(audio_data):
 
 def generate_word_document(transcription):
     print("generate_word_document")
-    # doc = Document()
-    # doc.add_heading('Sermon Transcription', 0)
-    # doc.add_paragraph(transcription)
-    # file_path = f"/tmp/{datetime.now().strftime('%Y%m%d%H%M%S')}.docx"
-    # doc.save(file_path)
-    # return file_path
+    # Implement WORD document generation logic here
+    # Return the path to the generated WORD document
+
+def generate_txt_document(transcription):
+    print("generate_txt_document")
+    # Implement TXT document generation logic here
+    # Return the path to the generated TXT document
+
+def generate_md_document(transcription):
+    print("generate_md_document")
+    # Implement MD document generation logic here
+    # Return the path to the generated MD document
 
 def store_locally(file_path):
     file_name = os.path.basename(file_path)
