@@ -2,21 +2,24 @@ from flask import Flask, request, jsonify, send_file
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from docx import Document
+# from docx import Document
 import os
 from datetime import datetime
 from admin_routes import admin
 from drive_utils import download_from_drive  # Import the new function
 from models import User, History
+from dotenv import load_dotenv
+from database import db
+load_dotenv()  # Add this near the top of your app.py
 
 app = Flask(__name__)
-app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'your-secret-key')  # Change this in production!
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///ezra.db')
+app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')  # Change this in production!
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'  # Configuration for file uploads
 
 jwt = JWTManager(app)
-db = SQLAlchemy(app)
+db.init_app(app)
 
 # Ensure upload folder exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -31,7 +34,7 @@ def login():
     user = User.query.filter_by(username=username).first()
     if user and check_password_hash(user.password, password):
         access_token = create_access_token(identity=username)
-        return jsonify(access_token=access_token), 200
+        return jsonify(access_token=access_token, is_admin=user.is_admin), 200
     return jsonify({"msg": "Bad username or password"}), 401
 
 @app.route('/process', methods=['POST'])
@@ -127,15 +130,17 @@ def get_logs():
 
 def call_asr_api(audio_data):
     # Implement ASR API call here
-    pass
+    print("call_asr_api")
+    return "call_asr_api"
 
 def generate_word_document(transcription):
-    doc = Document()
-    doc.add_heading('Sermon Transcription', 0)
-    doc.add_paragraph(transcription)
-    file_path = f"/tmp/{datetime.now().strftime('%Y%m%d%H%M%S')}.docx"
-    doc.save(file_path)
-    return file_path
+    print("generate_word_document")
+    # doc = Document()
+    # doc.add_heading('Sermon Transcription', 0)
+    # doc.add_paragraph(transcription)
+    # file_path = f"/tmp/{datetime.now().strftime('%Y%m%d%H%M%S')}.docx"
+    # doc.save(file_path)
+    # return file_path
 
 def store_locally(file_path):
     file_name = os.path.basename(file_path)
@@ -144,5 +149,6 @@ def store_locally(file_path):
     return destination
 
 if __name__ == '__main__':
-    db.create_all()
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)

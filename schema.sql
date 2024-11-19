@@ -55,4 +55,9 @@ EXECUTE FUNCTION update_modified_column();
 
 -- Insert an initial admin user (change the username and password as needed)
 INSERT INTO users (username, password, is_admin)
-VALUES ('admin', 'change_this_password', TRUE);
+VALUES ('admin', 'admin', TRUE);
+
+GRANT ALL ON SCHEMA public TO ezra_user;
+
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ezra_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ezra_user;
