@@ -1,26 +1,35 @@
+from pathlib import Path
 import traceback
 from flask import Flask, request, jsonify, send_file
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from admin_routes import admin
-from drive_utils import download_from_drive  # Import the new function
 from models import User, Transcription, ErrorLog  # Change this import
 from dotenv import load_dotenv
 from database import db
+from transcription_api import TranscriptionService
+from time import time
+import gdown  # Add this import
 load_dotenv()  # Add this near the top of your app.py
 
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')  # Change this in production!
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = 'uploads'  # Configuration for file uploads
+app.config['AUDIO_FOLDER'] = 'audio'  # Configuration for file uploads
+app.config['TXT_FOLDER'] = 'txt'
+app.config['MD_FOLDER'] = 'md'
+app.config['WORD_FOLDER'] = 'word'
 
 jwt = JWTManager(app)
 db.init_app(app)
 
-# Ensure upload folder exists
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+# Ensure all folders exists
+os.makedirs(app.config['AUDIO_FOLDER'], exist_ok=True)
+os.makedirs(app.config['TXT_FOLDER'], exist_ok=True)
+os.makedirs(app.config['MD_FOLDER'], exist_ok=True)
+os.makedirs(app.config['WORD_FOLDER'], exist_ok=True)
 
 # Register the admin blueprint
 app.register_blueprint(admin, url_prefix='/admin')
@@ -46,15 +55,17 @@ def process_audio():
     if 'file' in request.files:
         audio_file = request.files['file']
         audio_data = audio_file.read()
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], audio_file.filename)
+        file_path = os.path.join(app.config['AUDIO_FOLDER'], audio_file.filename)
         with open(file_path, 'wb') as f:
             f.write(audio_data)
     elif 'drive_link' in request.form:
         drive_url = request.form['drive_link']
-        audio_data = download_from_drive(drive_url)
-
-    if not audio_data:
-        return jsonify({"error": "No audio data provided"}), 400
+        folder_path = os.path.join(app.config['AUDIO_FOLDER'], "")
+        # file_path = gdown.download(drive_url, folder_path, fuzzy=True)
+        file_path = drive_url
+    
+    # if not file_path or not os.path.exists(file_path):
+    #     return jsonify({"error": "No audio data provided or download failed"}), 400
 
     try:
         # Create transcription record
@@ -62,30 +73,32 @@ def process_audio():
             user_id=user.id,
             audio_file_path=file_path,
             google_drive_url=drive_url,
-            status='processing'
+            status='transcribing'
         )
         db.session.add(transcription)
         db.session.commit()
 
-        # Generate documents
-        txt_path = call_asr_api(audio_data)
-        md_path = generate_md_document(txt_path)
-        word_path = generate_word_document(md_path)
+        # # First step: Transcribe only
+        # txt_path = transcribe_audio(file_path)
+        # transcription.txt_document_path = txt_path
 
-        # Update transcription record
+        # transcription.status = 'proofreading'
+        # db.session.commit()
+        # # Second step: Proofread and generate other formats
+        # md_path = proofread_text(txt_path)
+        # transcription.md_document_path = md_path
+
+        transcription.status = 'converting'
+        db.session.commit()
+        word_path = convert_md_to_word('chatgpt.md')
         transcription.word_document_path = word_path
-        transcription.txt_document_path = txt_path
-        transcription.md_document_path = md_path
+
+        # Final update to transcription record
         transcription.status = 'completed'
         db.session.commit()
 
         return jsonify({
             "message": "Processing complete",
-            "document_urls": {
-                "txt": f"/download/{os.path.basename(txt_path)}",
-                "md": f"/download/{os.path.basename(md_path)}",
-                "word": f"/download/{os.path.basename(word_path)}",
-            }
         }), 200
 
     except Exception as e:
@@ -101,88 +114,69 @@ def process_audio():
         db.session.commit()
         return jsonify({"error": str(e)}), 500
 
-@app.route('/transcription', methods=['GET'])
+@app.route('/transcriptions', methods=['GET'])
 @jwt_required()
-def get_transcription():
+def get_transcriptions():
     user = User.query.filter_by(username=get_jwt_identity()).first()
-    transcriptions = Transcription.query.filter_by(user_id=user.id).all()
+    transcriptions = Transcription.query.filter_by(user_id=user.id).order_by(Transcription.created_at.desc()).all()
     return jsonify([{
         "id": t.id,
         "created_at": t.created_at,
         "updated_at": t.updated_at,
         "status": t.status,
-        "documents": {
-            "txt": f"/download/{os.path.basename(t.txt_document_path)}" if t.txt_document_path else None,
-            "md": f"/download/{os.path.basename(t.md_document_path)}" if t.md_document_path else None,
-            "word": f"/download/{os.path.basename(t.word_document_path)}" if t.word_document_path else None,
-        }
+        "word_document_path": t.word_document_path if t.word_document_path else None
     } for t in transcriptions]), 200
 
-@app.route('/download/<filename>', methods=['GET'])
+@app.route('/download/word/<filename>', methods=['GET'])
 @jwt_required()
-def download_file(filename):
-    return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename), as_attachment=True)
+def download_word_file(filename):
+    return send_file(os.path.join(app.config['WORD_FOLDER'], filename), as_attachment=True)
 
-@app.route('/admin/users', methods=['POST'])
-@jwt_required()
-def add_user():
-    current_user = User.query.filter_by(username=get_jwt_identity()).first()
-    if not current_user.is_admin:
-        return jsonify({"error": "Admin access required"}), 403
+# @app.route('/download/txt/<filename>', methods=['GET'])
+# @jwt_required()
+# def download_txt_file(filename):
+#     return send_file(os.path.join(app.config['TXT_FOLDER'], filename), as_attachment=True)
+#
+# @app.route('/download/md/<filename>', methods=['GET'])
+# @jwt_required()
+# def download_md_file(filename):
+#     return send_file(os.path.join(app.config['MD_FOLDER'], filename), as_attachment=True)
+#
+# @app.route('/download/audio/<filename>', methods=['GET'])
+# @jwt_required()
+# def download_audio_file(filename):
+#     return send_file(os.path.join(app.config['AUDIO_FOLDER'], filename), as_attachment=True)
 
-    username = request.json.get('username')
-    password = request.json.get('password')
-    is_admin = request.json.get('is_admin', False)
+def transcribe_audio(audio_file_path):
+    service = TranscriptionService()
+    
+    # Transcribe only
+    success, txt_path, error = service.transcribe(audio_file_path)
+    if not success:
+        raise Exception(f"Transcription failed: {error}")
+    
+    return txt_path
 
-    if User.query.filter_by(username=username).first():
-        return jsonify({"error": "Username already exists"}), 400
+def proofread_text(txt_path):
+    service = TranscriptionService()
+    
+    # Proofread the transcribed text
+    success, md_path, error = service.proofread(txt_path)
+    if not success:
+        raise Exception(f"Proofreading failed: {error}")
+    
+    return md_path
 
-    new_user = User(username=username, password=generate_password_hash(password), is_admin=is_admin)
-    db.session.add(new_user)
-    db.session.commit()
-
-    return jsonify({"message": "User created successfully"}), 201
-
-@app.route('/admin/logs', methods=['GET'])
-@jwt_required()
-def get_logs():
-    current_user = User.query.filter_by(username=get_jwt_identity()).first()
-    if not current_user.is_admin:
-        return jsonify({"error": "Admin access required"}), 403
-
-    logs = ErrorLog.query.filter_by(status='error').all()
-    return jsonify([{
-        "id": log.id,
-        "user_id": log.user_id,
-        "created_at": log.created_at,
-        "error_message": log.error_message
-    } for log in logs]), 200
-
-def call_asr_api(audio_data):
-    # Implement ASR API call here
-    print("call_asr_api")
-    return "call_asr_api"
-
-def generate_word_document(transcription):
-    print("generate_word_document")
-    # Implement WORD document generation logic here
-    # Return the path to the generated WORD document
-
-def generate_txt_document(transcription):
-    print("generate_txt_document")
-    # Implement TXT document generation logic here
-    # Return the path to the generated TXT document
-
-def generate_md_document(transcription):
-    print("generate_md_document")
-    # Implement MD document generation logic here
-    # Return the path to the generated MD document
-
-def store_locally(file_path):
-    file_name = os.path.basename(file_path)
-    destination = os.path.join(app.config['UPLOAD_FOLDER'], file_name)
-    os.rename(file_path, destination)
-    return destination
+def convert_md_to_word(md_path):
+    service = TranscriptionService()
+    
+    output_file = os.path.join(app.config['WORD_FOLDER'], f'{Path(md_path).stem}.docx')
+    reference_doc = 'reference_pandoc.docx'
+    success, docx_path, error = service.convert_to_docx(md_path, output_file, reference_doc)
+    if not success:
+        raise Exception(f"DOCX conversion failed: {error}")
+    
+    return docx_path
 
 if __name__ == '__main__':
     with app.app_context():

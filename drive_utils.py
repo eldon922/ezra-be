@@ -39,6 +39,7 @@ def download_from_drive(drive_link):
     try:
         service = get_google_drive_service()
         file_id = extract_file_id_from_url(drive_link)
+        file_name = service.files().get(fileId=file_id).execute().get('name')
 
         request = service.files().get_media(fileId=file_id)
         file = io.BytesIO()
@@ -49,7 +50,7 @@ def download_from_drive(drive_link):
             print(f"Download {int(status.progress() * 100)}%.")
 
         file.seek(0)
-        return file.read()
+        return file.read(), file_name
     except Exception as e:
         print(f"An error occurred: {e}")
         raise
