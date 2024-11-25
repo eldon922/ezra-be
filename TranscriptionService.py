@@ -2,22 +2,16 @@ import os
 from typing import Optional
 
 import anthropic
-import assemblyai as aai
 import pypandoc
+
+from whisper import Whisper
 
 
 class TranscriptionService:
     def __init__(self):
-        self.aai_api_key = os.environ.get('AAI_API_KEY')
         self.anthropic_api_key = os.environ.get('ANTHROPIC_API_KEY')
 
-        # Initialize AssemblyAI
-        aai.settings.api_key = self.aai_api_key
-        self.config = aai.TranscriptionConfig(
-            language_code="id",
-            speech_model=aai.SpeechModel.nano
-        )
-        self.transcriber = aai.Transcriber(config=self.config)
+        self.transcriber = Whisper()
 
         # Initialize Anthropic
         self.claude = anthropic.Anthropic(api_key=self.anthropic_api_key)
@@ -26,11 +20,11 @@ class TranscriptionService:
         """Returns (success, output_path, error_message)"""
         try:
             transcript = self.transcriber.transcribe(file_path)
-            if transcript.status == aai.TranscriptStatus.error:
-                return False, None, str(transcript.error)
+            # if transcript.status == aai.TranscriptStatus.error:
+            #     return False, None, str(transcript.error)
 
             with open(output_path, 'w') as file:
-                file.write(transcript.text)
+                file.write(transcript['text'])
             return True, output_path, None
 
         except Exception as e:

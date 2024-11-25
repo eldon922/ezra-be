@@ -8,7 +8,7 @@ from admin_routes import admin
 from models import User, Transcription, ErrorLog  # Change this import
 from dotenv import load_dotenv
 from database import db
-from transcription_api import TranscriptionService
+from TranscriptionService import TranscriptionService
 from time import time
 import gdown  # Add this import
 load_dotenv()  # Add this near the top of your app.py
