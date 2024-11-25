@@ -1,4 +1,4 @@
-import app
+from app import app
 from database import db
 
 if __name__ == "__main__":
