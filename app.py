@@ -48,7 +48,6 @@ def login():
 @jwt_required()
 def process_audio():
     user = User.query.filter_by(username=get_jwt_identity()).first()
-    audio_data = None
     file_path = None
     drive_url = None
 
@@ -61,11 +60,16 @@ def process_audio():
     elif 'drive_link' in request.form:
         drive_url = request.form['drive_link']
         folder_path = os.path.join(app.config['AUDIO_FOLDER'], "")
-        # file_path = gdown.download(drive_url, folder_path, fuzzy=True)
-        file_path = drive_url
+        try:
+            file_path = gdown.download(drive_url, folder_path, fuzzy=True)
+            if file_path is None:
+                raise Exception("Download failed. Please check if the Google Drive link is valid and publicly accessible.")
+        except Exception as e:
+            return jsonify({"error": f"Invalid Google Drive URL. Please make sure the link is correct and the file is publicly accessible. ({e})"}), 400
+        # file_path = drive_url
     
-    # if not file_path or not os.path.exists(file_path):
-    #     return jsonify({"error": "No audio data provided or download failed"}), 400
+    if not file_path or not os.path.exists(file_path):
+        return jsonify({"error": "No audio data provided or download failed"}), 400
 
     try:
         # Create transcription record
@@ -78,19 +82,19 @@ def process_audio():
         db.session.add(transcription)
         db.session.commit()
 
-        # # First step: Transcribe only
-        # txt_path = transcribe_audio(file_path)
-        # transcription.txt_document_path = txt_path
+        # First step: Transcribe only
+        txt_path = transcribe_audio(file_path)
+        transcription.txt_document_path = txt_path
 
-        # transcription.status = 'proofreading'
-        # db.session.commit()
-        # # Second step: Proofread and generate other formats
-        # md_path = proofread_text(txt_path)
-        # transcription.md_document_path = md_path
+        transcription.status = 'proofreading'
+        db.session.commit()
+        # Second step: Proofread and generate other formats
+        md_path = proofread_text(txt_path)
+        transcription.md_document_path = md_path
 
         transcription.status = 'converting'
         db.session.commit()
-        word_path = convert_md_to_word('chatgpt.md')
+        word_path = convert_md_to_word(md_path)
         transcription.word_document_path = word_path
 
         # Final update to transcription record
@@ -102,6 +106,7 @@ def process_audio():
         }), 200
 
     except Exception as e:
+        print(f"An error occurred: {e}")
         # Log error
         error_log = ErrorLog(
             user_id=user.id,
@@ -149,9 +154,10 @@ def download_word_file(filename):
 
 def transcribe_audio(audio_file_path):
     service = TranscriptionService()
-    
+
+    output_path = os.path.join(app.config['TXT_FOLDER'], f'{Path(audio_file_path).stem}.txt')
     # Transcribe only
-    success, txt_path, error = service.transcribe(audio_file_path)
+    success, txt_path, error = service.transcribe(audio_file_path, output_path)
     if not success:
         raise Exception(f"Transcription failed: {error}")
     
@@ -159,9 +165,10 @@ def transcribe_audio(audio_file_path):
 
 def proofread_text(txt_path):
     service = TranscriptionService()
-    
+
+    output_path = os.path.join(app.config['MD_FOLDER'], f'{Path(txt_path).stem}.md')
     # Proofread the transcribed text
-    success, md_path, error = service.proofread(txt_path)
+    success, md_path, error = service.proofread(txt_path, output_path)
     if not success:
         raise Exception(f"Proofreading failed: {error}")
     

@@ -14,29 +14,29 @@ class TranscriptionService:
         aai.settings.api_key = self.aai_api_key
         self.config = aai.TranscriptionConfig(
             language_code="id",
-            disfluencies=True
+            speech_model=aai.SpeechModel.nano
         )
         self.transcriber = aai.Transcriber(config=self.config)
         
         # Initialize Anthropic
         self.claude = anthropic.Anthropic(api_key=self.anthropic_api_key)
 
-    def transcribe(self, file_path: str) -> tuple[bool, str, Optional[str]]:
+    def transcribe(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
         try:
             transcript = self.transcriber.transcribe(file_path)
             if transcript.status == aai.TranscriptStatus.error:
                 return False, None, str(transcript.error)
 
-            output_path = f'{Path(file_path).stem}.md'
             with open(output_path, 'w') as file:
                 file.write(transcript.text)
             return True, output_path, None
             
         except Exception as e:
+            print(f"An error occurred: {e}")
             return False, None, str(e)
 
-    def proofread(self, file_path: str) -> tuple[bool, str, Optional[str]]:
+    def proofread(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
         try:
             with open(file_path, "r") as f:
@@ -46,18 +46,18 @@ class TranscriptionService:
 
             message = self.claude.messages.create(
                 model="claude-3-5-sonnet-20241022",
-                max_tokens=30000,
+                max_tokens=8192,
                 temperature=0,
                 system=system_prompt,
                 messages=[{"role": "user", "content": [{"type": "text", "text": content}]}]
             )
 
-            output_path = f'{Path(file_path).stem}_proofread.md'
             with open(output_path, 'w') as file:
-                file.write(message.content)
+                file.write(message.content[0].text)
             return True, output_path, None
 
         except Exception as e:
+            print(f"An error occurred: {e}")
             return False, None, str(e)
 
     def convert_to_docx(self, input_file: str, output_file: str, reference_doc: str) -> tuple[bool, str, Optional[str]]:
@@ -72,4 +72,5 @@ class TranscriptionService:
             return True, output_file, None
 
         except Exception as e:
+            print(f"An error occurred: {e}")
             return False, None, str(e)
