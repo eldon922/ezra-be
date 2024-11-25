@@ -1,3 +1,8 @@
+GRANT ALL ON SCHEMA public TO ezra_user;
+
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ezra_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ezra_user;
+
 -- Create Users table
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
@@ -57,9 +62,4 @@ EXECUTE FUNCTION update_modified_column();
 
 -- Insert an initial admin user (change the username and password as needed)
 INSERT INTO users (username, password, is_admin)
-VALUES ('admin', 'admin', TRUE);
-
-GRANT ALL ON SCHEMA public TO ezra_user;
-
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ezra_user;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ezra_user;
+VALUES ('admin', 'scrypt:32768:8:1$bZFLqrx1BYdchGLn$17766ff7275041bc914d608ddb5087862deb396ff507baa7f9318bafd2afea5f905dff6a4d37e1bb57dd8ad6ea6c3dfec6fa293239176059f03ba4691fb2d452', TRUE);
