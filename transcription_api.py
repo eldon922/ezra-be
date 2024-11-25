@@ -1,15 +1,16 @@
 import os
-from pathlib import Path
-import assemblyai as aai
-import anthropic
-import pypandoc
 from typing import Optional
+
+import anthropic
+import assemblyai as aai
+import pypandoc
+
 
 class TranscriptionService:
     def __init__(self):
         self.aai_api_key = os.environ.get('AAI_API_KEY')
         self.anthropic_api_key = os.environ.get('ANTHROPIC_API_KEY')
-        
+
         # Initialize AssemblyAI
         aai.settings.api_key = self.aai_api_key
         self.config = aai.TranscriptionConfig(
@@ -17,7 +18,7 @@ class TranscriptionService:
             speech_model=aai.SpeechModel.nano
         )
         self.transcriber = aai.Transcriber(config=self.config)
-        
+
         # Initialize Anthropic
         self.claude = anthropic.Anthropic(api_key=self.anthropic_api_key)
 
@@ -31,7 +32,7 @@ class TranscriptionService:
             with open(output_path, 'w') as file:
                 file.write(transcript.text)
             return True, output_path, None
-            
+
         except Exception as e:
             print(f"An error occurred: {e}")
             return False, None, str(e)
@@ -42,18 +43,42 @@ class TranscriptionService:
             with open(file_path, "r") as f:
                 content = f.read()
 
-            system_prompt = """I want you to be my assistant to help me with creating transcript of sermons, I have used Whisper model to convert the speech into text. Go through these texts and modify them so they:\n1. Follow the correct language rules without modifying any words (except it is mistyped, please fix it), change the structure, reorder words in sentences.\n2. Proper (not short) paragraphing. Please be mind that I will use this texts to create short form video content maximum 1 minutes. So please do the paragraphing by minding it and don't create too short paragraph.\n3. Fixing mistyped words\n4. Applying italics to foreign language words rather than the main language.\n5. Separate each Bible verse onto its own line and make the text italic, then add a superscript number at the beginning of each line to indicate the verse number.\n6. Use double quote for each references that the speaker spoke which are comes from other sources.\n7. Add, change, or remove punctuations so it is used properly, such as using em dashes on appropriate places, semi colon, etc.\n\nThere are rules that you need to comply when you do the modification on the text which are:\n1. Please don't remove any words or sentences or changing it.\n2. Don't come up with new words or something else.\n\nPlease, create the markdown output only. No need any response from you other than that."""
+            # Split content into two parts
+            content_length = len(content)
+            mid_point = content_length // 2
 
-            message = self.claude.messages.create(
+            # Find the nearest period to create clean splits
+            while mid_point < content_length and content[mid_point] != '.':
+                mid_point += 1
+
+            first_half = content[:mid_point + 1]
+            second_half = content[mid_point + 1:]
+
+            system_prompt = """I want you to be my assistant to help me with creating transcript of sermons, I have used Whisper model to convert the speech into text. Go through these texts and modify them so they:\n1. Follow the correct language rules without modifying any words (except it is mistyped, please fix it), change the structure, reorder words in sentences.\n2. Proper (not short) paragraphing. Please be mind that I will use this texts to create short form video content maximum 1 minutes. So please do the paragraphing by minding it and don't create too short paragraph.\n3. Fixing mistyped words\n4. Applying italics to foreign language words rather than the main language.\n5. Separate each Bible verse onto its own line and make the text italic, then add a superscript number at the beginning of each line to indicate the verse number using ^TEXT^ format.\n6. Use double quote for each references that the speaker spoke which are comes from other sources.\n7. Add, change, or remove punctuations so it is used properly, such as using em dashes on appropriate places, semi colon, etc.\n\nThere are rules that you need to comply when you do the modification on the text which are:\n1. Please don't remove any words or sentences or changing it.\n2. Don't come up with new words or something else.\n\nPlease, create the markdown output only. No need any response from you other than that."""
+
+            # Process first half
+            first_half_response = self.claude.messages.create(
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=8192,
                 temperature=0,
                 system=system_prompt,
-                messages=[{"role": "user", "content": [{"type": "text", "text": content}]}]
-            )
+                messages=[{"role": "user", "content": first_half}])
+            first_half_result = first_half_response.content[0].text
+
+            # Process second half
+            second_half_response = self.claude.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=8192,
+                temperature=0,
+                system=system_prompt,
+                messages=[{"role": "user", "content": second_half}])
+            second_half_result = second_half_response.content[0].text
+
+            # Combine responses
+            combined_output = f"{first_half_result}\n{second_half_result}"
 
             with open(output_path, 'w') as file:
-                file.write(message.content[0].text)
+                file.write(combined_output)
             return True, output_path, None
 
         except Exception as e:
@@ -64,8 +89,8 @@ class TranscriptionService:
         """Returns (success, output_path, error_message)"""
         try:
             pypandoc.convert_file(
-                input_file, 
-                'docx', 
+                input_file,
+                'docx',
                 outputfile=output_file,
                 extra_args=['--reference-doc=' + reference_doc]
             )
