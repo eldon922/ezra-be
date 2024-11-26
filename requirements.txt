@@ -18,3 +18,4 @@ pypandoc~=1.14
 torch~=2.4.1
 transformers~=4.46.0
 gunicorn
+flask_executor

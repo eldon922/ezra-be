@@ -1,23 +1,23 @@
 from pathlib import Path
 import traceback
 from flask import Flask, request, jsonify, send_file
+from flask_executor import Executor
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import check_password_hash
 import os
 from admin_routes import admin
-from models import User, Transcription, ErrorLog  # Change this import
+from models import User, Transcription, ErrorLog
 from dotenv import load_dotenv
 from database import db
 from TranscriptionService import TranscriptionService
-from time import time
-import gdown  # Add this import
-load_dotenv()  # Add this near the top of your app.py
+import gdown
+load_dotenv()
 
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')  # Change this in production!
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['AUDIO_FOLDER'] = 'audio'  # Configuration for file uploads
+app.config['AUDIO_FOLDER'] = 'audio'
 app.config['TXT_FOLDER'] = 'txt'
 app.config['MD_FOLDER'] = 'md'
 app.config['WORD_FOLDER'] = 'word'
@@ -43,6 +43,8 @@ def login():
         access_token = create_access_token(identity=username)
         return jsonify(access_token=access_token, is_admin=user.is_admin), 200
     return jsonify({"msg": "Bad username or password"}), 401
+
+executor = Executor(app)
 
 @app.route('/process', methods=['POST'])
 @jwt_required()
@@ -71,53 +73,11 @@ def process_audio():
     if not file_path or not os.path.exists(file_path):
         return jsonify({"error": "No audio data provided or download failed"}), 400
 
-    try:
-        # Create transcription record
-        transcription = Transcription(
-            user_id=user.id,
-            audio_file_path=file_path,
-            google_drive_url=drive_url,
-            status='transcribing'
-        )
-        db.session.add(transcription)
-        db.session.commit()
+    executor.submit(process_transcription, user, file_path, drive_url)
+    return jsonify({
+        "message": "Transcription request is submitted",
+    }), 200
 
-        # First step: Transcribe only
-        txt_path = transcribe_audio(file_path)
-        transcription.txt_document_path = txt_path
-
-        transcription.status = 'proofreading'
-        db.session.commit()
-        # Second step: Proofread and generate other formats
-        md_path = proofread_text(txt_path)
-        transcription.md_document_path = md_path
-
-        transcription.status = 'converting'
-        db.session.commit()
-        word_path = convert_md_to_word(md_path)
-        transcription.word_document_path = word_path
-
-        # Final update to transcription record
-        transcription.status = 'completed'
-        db.session.commit()
-
-        return jsonify({
-            "message": "Processing complete",
-        }), 200
-
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        # Log error
-        error_log = ErrorLog(
-            user_id=user.id,
-            transcription_id=transcription.id,
-            error_message=str(e),
-            stack_trace=traceback.format_exc()
-        )
-        transcription.status = 'error'
-        db.session.add(error_log)
-        db.session.commit()
-        return jsonify({"error": str(e)}), 500
 
 @app.route('/transcriptions', methods=['GET'])
 @jwt_required()
@@ -151,6 +111,50 @@ def download_word_file(filename):
 # @jwt_required()
 # def download_audio_file(filename):
 #     return send_file(os.path.join(app.config['AUDIO_FOLDER'], filename), as_attachment=True)
+
+def process_transcription(user, file_path, drive_url):
+    try:
+        # Create transcription record
+        transcription = Transcription(
+            user_id=user.id,
+            audio_file_path=file_path,
+            google_drive_url=drive_url,
+            status='transcribing'
+        )
+        db.session.add(transcription)
+        db.session.commit()
+
+        # First step: Transcribe only
+        txt_path = transcribe_audio(file_path)
+        transcription.txt_document_path = txt_path
+
+        transcription.status = 'proofreading'
+        db.session.commit()
+        # Second step: Proofread and generate other formats
+        md_path = proofread_text(txt_path)
+        transcription.md_document_path = md_path
+
+        transcription.status = 'converting'
+        db.session.commit()
+        word_path = convert_md_to_word(md_path)
+        transcription.word_document_path = word_path
+
+        # Final update to transcription record
+        transcription.status = 'completed'
+        db.session.commit()
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        # Log error
+        error_log = ErrorLog(
+            user_id=user.id,
+            transcription_id=transcription.id,
+            error_message=str(e),
+            stack_trace=traceback.format_exc()
+        )
+        transcription.status = 'error'
+        db.session.add(error_log)
+        db.session.commit()
 
 def transcribe_audio(audio_file_path):
     service = TranscriptionService()
