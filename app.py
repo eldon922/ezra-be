@@ -89,7 +89,8 @@ def get_transcriptions():
         "created_at": t.created_at,
         "updated_at": t.updated_at,
         "status": t.status,
-        "word_document_path": t.word_document_path if t.word_document_path else None
+        "word_document_path": t.word_document_path if t.word_document_path else None,
+        "audio_file_name": f'{Path(t.audio_file_path).stem}'
     } for t in transcriptions]), 200
 
 @app.route('/download/word/<filename>', methods=['GET'])
