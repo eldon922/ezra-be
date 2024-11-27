@@ -10,7 +10,8 @@ def measure_execution_time(func):
         result = func(*args, **kwargs)
         end_time = time.time()
         execution_time = end_time - start_time
-        print(f"Execution time of {func.__name__}: {execution_time:.6f} seconds")
+        print(f"Execution time of {func.__name__}: {
+              execution_time:.6f} seconds")
         return result
 
     return wrapper
@@ -37,6 +38,7 @@ class Whisper:
             feature_extractor=processor.feature_extractor,
             torch_dtype=torch_dtype,
             device=device,
+            return_timestamps=True,
             generate_kwargs={"language": "indonesia"}
         )
 
@@ -44,5 +46,6 @@ class Whisper:
     def transcribe(self, file_path):
         data, samplerate = soundfile.read(file_path)
         if len(data.shape) > 1:
-            data = data.mean(axis=1)  # Convert stereo to mono by averaging channels
+            # Convert stereo to mono by averaging channels
+            data = data.mean(axis=1)
         return self.pipe(data)
