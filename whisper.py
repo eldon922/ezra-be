@@ -39,7 +39,7 @@ class Whisper:
             torch_dtype=torch_dtype,
             device=device,
             return_timestamps=True,
-            generate_kwargs={"language": "indonesia"}
+            generate_kwargs={"language": "indonesian"}
         )
 
     @measure_execution_time
