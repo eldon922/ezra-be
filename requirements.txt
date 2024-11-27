@@ -17,6 +17,10 @@ assemblyai~=0.35.1
 pypandoc~=1.14
 torch~=2.4.1
 transformers~=4.46.0
+accelerate
 gunicorn
 flask_executor
-accelerate
+soundfile
+pandoc
+psycopg2-binary
+pypandoc-binary

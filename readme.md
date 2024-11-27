@@ -1,1 +1,1 @@
-pip install Flask psycopg2-binary
+sudo apt install pandoc
