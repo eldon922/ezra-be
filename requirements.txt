@@ -20,7 +20,8 @@ transformers~=4.46.0
 accelerate
 gunicorn
 flask_executor
-soundfile
 pandoc
 psycopg2-binary
 pypandoc-binary
+ffmpeg
+ffmpeg-python

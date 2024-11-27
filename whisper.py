@@ -1,7 +1,6 @@
 import time
 import torch
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
-import soundfile
 
 
 def measure_execution_time(func):
@@ -44,8 +43,4 @@ class Whisper:
 
     @measure_execution_time
     def transcribe(self, file_path):
-        data, samplerate = soundfile.read(file_path)
-        if len(data.shape) > 1:
-            # Convert stereo to mono by averaging channels
-            data = data.mean(axis=1)
-        return self.pipe(data)
+        return self.pipe(file_path)
