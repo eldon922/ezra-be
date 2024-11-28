@@ -48,7 +48,24 @@ class TranscriptionService:
             first_half = content[:mid_point + 1]
             second_half = content[mid_point + 1:]
 
-            system_prompt = """I want you to be my assistant to help me with creating transcript of sermons, I have used Whisper model to convert the speech into text. Go through these texts and modify them so they:\n1. Follow the correct language rules without modifying any words (except it is mistyped, please fix it), change the structure, reorder words in sentences.\n2. Proper (not short) paragraphing. Please be mind that I will use this texts to create short form video content maximum 1 minutes. So please do the paragraphing by minding it and don't create too short paragraph.\n3. Fixing mistyped words\n4. Applying italics to foreign language words rather than the main language.\n5. Separate each Bible verse onto its own line and make the text italic, then add a superscript number at the beginning of each line to indicate the verse number using ^TEXT^ format.\n6. Use double quote for each references that the speaker spoke which are comes from other sources.\n7. Add, change, or remove punctuations so it is used properly, such as using em dashes on appropriate places, semi colon, etc.\n\nThere are rules that you need to comply when you do the modification on the text which are:\n1. Please don't remove any words or sentences or changing it.\n2. Don't come up with new words or something else.\n\nPlease, create the markdown output only. No need any response from you other than that."""
+            system_prompt = """
+                I want you to be my assistant to help me with creating transcript of sermons, I have used Whisper model to convert the speech into text. Go through these texts and modify them so they:
+                1. Follow the correct language rules without modifying any words (except it is mistyped, please fix it), change the structure, reorder words in sentences.
+                2. Proper (not short) paragraphing. Please be mind that I will use this texts to create short form video content maximum 1 minutes. So please do the paragraphing by minding it and don't create too short paragraph.
+                3. Fixing mistyped words
+                4. Applying italics to foreign language words rather than the main language.
+                5. Separate each Bible verse onto its own line and make the text italic, then add a superscript number at the beginning of each line to indicate the verse number using ^TEXT^ format.
+                6. Use double quote for each references that the speaker spoke which are comes from other sources.
+                7. Add, change, or remove punctuations so it is used properly, such as using em dashes on appropriate places, semi colon, etc.
+                8. Change "Bapak" to "Bapa" if it's refer to Father. If it's not, use "Bapak".
+                9. Add double quotes to prayer.
+
+                There are rules that you need to comply when you do the modification on the text which are:
+                1. Please don't remove any words or sentences or changing it.
+                2. Don't come up with new words or something else.
+
+                Please, generate the markdown output only. No need any response from you other than that.
+            """
 
             # Process first half
             first_half_response = self.claude.messages.create(
