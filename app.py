@@ -1,3 +1,4 @@
+import datetime
 from pathlib import Path
 import traceback
 from flask import Flask, request, jsonify, send_file
@@ -40,7 +41,7 @@ def login():
     password = request.json.get('password', None)
     user = User.query.filter_by(username=username).first()
     if user and check_password_hash(user.password, password):
-        access_token = create_access_token(identity=username)
+        access_token = create_access_token(identity=username, expires_delta=datetime.timedelta(days=1))
         return jsonify(access_token=access_token, is_admin=user.is_admin), 200
     return jsonify({"msg": "Bad username or password"}), 401
 
