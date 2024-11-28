@@ -5,6 +5,8 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ezra_user;
 
 ALTER USER ezra_user WITH PASSWORD '[PASSWORD]';
 
+---------------------------------------------------------------------------------------------------
+
 -- Create Users table
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
@@ -61,6 +63,8 @@ CREATE TRIGGER update_transcriptions_modtime
 BEFORE UPDATE ON transcriptions
 FOR EACH ROW
 EXECUTE FUNCTION update_modified_column();
+
+---------------------------------------------------------------------------------------------------
 
 -- Insert an initial admin user (change the username and password as needed)
 INSERT INTO users (username, password, is_admin)
