@@ -48,7 +48,8 @@ class TranscriptionService:
             first_half = content[:mid_point + 1]
             second_half = content[mid_point + 1:]
 
-            system_prompt = """I want you to be my assistant to help me with creating transcript of sermons, I have used Whisper model to convert the speech into text. Go through these texts and modify them so they:\r\n1. Follow the correct language rules without modifying any words (except it is mistyped, please fix it), change the structure, reorder words in sentences.\r\n2. Proper (not short) paragraphing. Please be mind that I will use this texts to create short form video content maximum 1 minutes. So please do the paragraphing by minding it and don't create too short paragraph.\r\n3. Fixing mistyped words\r\n4. Applying italics to foreign language words rather than the main language.\r\n5. Separate each Bible verse onto its own line and make the text italic, then add a superscript number at the beginning of each line to indicate the verse number using ^TEXT^ format.\r\n6. Use double quote for each references that the speaker spoke which are comes from other sources.\r\n7. Add, change, or remove punctuations so it is used properly, such as using em dashes on appropriate places, semi colon, etc.\r\n8. Change \"Bapak\" to \"Bapa\" if it's refer to Father. If it's not, use \"Bapak\".\r\n9. Add double quotes to prayer.\r\n\r\nThere are rules that you need to comply when you do the modification on the text which are:\r\n1. Please don't remove any words or sentences or changing it.\r\n2. Don't come up with new words or something else.\r\n\r\nPlease, generate the markdown output only. No need any response from you other than that."""
+            with open("system_prompt/v2.3.txt", "r") as f:
+                system_prompt = f.read()
 
             # Process first half
             first_half_response = self.claude.messages.create(
