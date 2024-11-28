@@ -56,12 +56,12 @@ def process_audio():
     if 'file' in request.files:
         audio_file = request.files['file']
         audio_data = audio_file.read()
-        file_path = os.path.join(app.config['AUDIO_FOLDER'], audio_file.filename)
+        file_path = os.path.join(app.config['AUDIO_FOLDER'], user.username, audio_file.filename)
         with open(file_path, 'wb') as f:
             f.write(audio_data)
     elif 'drive_link' in request.form:
         drive_url = request.form['drive_link']
-        folder_path = os.path.join(app.config['AUDIO_FOLDER'], "")
+        folder_path = os.path.join(app.config['AUDIO_FOLDER'], user.username, "")
         try:
             file_path = gdown.download(drive_url, folder_path, fuzzy=True)
             if file_path is None:
@@ -96,22 +96,26 @@ def get_transcriptions():
 @app.route('/download/word/<filename>', methods=['GET'])
 @jwt_required()
 def download_word_file(filename):
-    return send_file(os.path.join(app.config['WORD_FOLDER'], filename), as_attachment=True)
+    user = User.query.filter_by(username=get_jwt_identity()).first()
+    return send_file(os.path.join(app.config['WORD_FOLDER'], user.username, filename), as_attachment=True)
 
 # @app.route('/download/txt/<filename>', methods=['GET'])
 # @jwt_required()
 # def download_txt_file(filename):
-#     return send_file(os.path.join(app.config['TXT_FOLDER'], filename), as_attachment=True)
-#
+#     user = User.query.filter_by(username=get_jwt_identity()).first()
+#     return send_file(os.path.join(app.config['TXT_FOLDER'], user.username, filename), as_attachment=True)
+
 # @app.route('/download/md/<filename>', methods=['GET'])
 # @jwt_required()
 # def download_md_file(filename):
-#     return send_file(os.path.join(app.config['MD_FOLDER'], filename), as_attachment=True)
-#
+#     user = User.query.filter_by(username=get_jwt_identity()).first()
+#     return send_file(os.path.join(app.config['MD_FOLDER'], user.username, filename), as_attachment=True)
+
 # @app.route('/download/audio/<filename>', methods=['GET'])
 # @jwt_required()
 # def download_audio_file(filename):
-#     return send_file(os.path.join(app.config['AUDIO_FOLDER'], filename), as_attachment=True)
+#     user = User.query.filter_by(username=get_jwt_identity()).first()
+#     return send_file(os.path.join(app.config['AUDIO_FOLDER'], user.username, filename), as_attachment=True)
 
 def process_transcription(user, file_path, drive_url):
     try:
@@ -126,18 +130,18 @@ def process_transcription(user, file_path, drive_url):
         db.session.commit()
 
         # First step: Transcribe only
-        txt_path = transcribe_audio(file_path)
+        txt_path = transcribe_audio(file_path, user.username)
         transcription.txt_document_path = txt_path
 
         transcription.status = 'proofreading'
         db.session.commit()
         # Second step: Proofread and generate other formats
-        md_path = proofread_text(txt_path)
+        md_path = proofread_text(txt_path, user.username)
         transcription.md_document_path = md_path
 
         transcription.status = 'converting'
         db.session.commit()
-        word_path = convert_md_to_word(md_path)
+        word_path = convert_md_to_word(md_path, user.username)
         transcription.word_document_path = word_path
 
         # Final update to transcription record
@@ -157,10 +161,10 @@ def process_transcription(user, file_path, drive_url):
         db.session.add(error_log)
         db.session.commit()
 
-def transcribe_audio(audio_file_path):
+def transcribe_audio(audio_file_path, username):
     service = TranscriptionService()
 
-    output_path = os.path.join(app.config['TXT_FOLDER'], f'{Path(audio_file_path).stem}.txt')
+    output_path = os.path.join(app.config['TXT_FOLDER'], username, f'{Path(audio_file_path).stem}.txt')
     # Transcribe only
     success, txt_path, error = service.transcribe(audio_file_path, output_path)
     if not success:
@@ -168,10 +172,10 @@ def transcribe_audio(audio_file_path):
     
     return txt_path
 
-def proofread_text(txt_path):
+def proofread_text(txt_path, username):
     service = TranscriptionService()
 
-    output_path = os.path.join(app.config['MD_FOLDER'], f'{Path(txt_path).stem}.md')
+    output_path = os.path.join(app.config['MD_FOLDER'], username, f'{Path(txt_path).stem}.md')
     # Proofread the transcribed text
     success, md_path, error = service.proofread(txt_path, output_path)
     if not success:
@@ -179,10 +183,10 @@ def proofread_text(txt_path):
     
     return md_path
 
-def convert_md_to_word(md_path):
+def convert_md_to_word(md_path, username):
     service = TranscriptionService()
     
-    output_file = os.path.join(app.config['WORD_FOLDER'], f'{Path(md_path).stem}.docx')
+    output_file = os.path.join(app.config['WORD_FOLDER'], username, f'{Path(md_path).stem}.docx')
     reference_doc = 'reference_pandoc.docx'
     success, docx_path, error = service.convert_to_docx(md_path, output_file, reference_doc)
     if not success:
