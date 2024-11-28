@@ -26,12 +26,6 @@ app.config['WORD_FOLDER'] = 'word'
 jwt = JWTManager(app)
 db.init_app(app)
 
-# Ensure all folders exists
-os.makedirs(app.config['AUDIO_FOLDER'], exist_ok=True)
-os.makedirs(app.config['TXT_FOLDER'], exist_ok=True)
-os.makedirs(app.config['MD_FOLDER'], exist_ok=True)
-os.makedirs(app.config['WORD_FOLDER'], exist_ok=True)
-
 # Register the admin blueprint
 app.register_blueprint(admin, url_prefix='/admin')
 
@@ -53,6 +47,7 @@ def process_audio():
     user = User.query.filter_by(username=get_jwt_identity()).first()
     file_path = None
     drive_url = None
+    os.makedirs(os.path.join(app.config['AUDIO_FOLDER'], user.username), exist_ok=True)
 
     if 'file' in request.files:
         audio_file = request.files['file']
@@ -177,6 +172,7 @@ def transcribe_audio(audio_file_path, username):
 def proofread_text(txt_path, username):
     service = TranscriptionService()
 
+    os.makedirs(os.path.join(app.config['MD_FOLDER'], username), exist_ok=True)
     output_path = os.path.join(app.config['MD_FOLDER'], username, f'{Path(txt_path).stem}.md')
     # Proofread the transcribed text
     success, md_path, error = service.proofread(txt_path, output_path)
@@ -188,6 +184,7 @@ def proofread_text(txt_path, username):
 def convert_md_to_word(md_path, username):
     service = TranscriptionService()
     
+    os.makedirs(os.path.join(app.config['WORD_FOLDER'], username), exist_ok=True)
     output_file = os.path.join(app.config['WORD_FOLDER'], username, f'{Path(md_path).stem}.docx')
     reference_doc = 'reference_pandoc.docx'
     success, docx_path, error = service.convert_to_docx(md_path, output_file, reference_doc)
