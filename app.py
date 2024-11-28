@@ -89,28 +89,40 @@ def get_transcriptions():
         "audio_file_name": f'{Path(t.audio_file_path).stem}'
     } for t in transcriptions]), 200
 
-@app.route('/download/word/<filename>', methods=['GET'])
+@app.route('/download/word/<username>/<filename>', methods=['GET'])
 @jwt_required()
-def download_word_file(filename):
+def download_word_file(username, filename):
     user = User.query.filter_by(username=get_jwt_identity()).first()
+    if (username != user.username):
+        return jsonify({"error": "Unauthorized access"}), 403
+
     return send_file(os.path.join(app.config['WORD_FOLDER'], user.username, filename), as_attachment=True)
 
-# @app.route('/download/txt/<filename>', methods=['GET'])
+# @app.route('/download/txt/<username>/<filename>', methods=['GET'])
 # @jwt_required()
-# def download_txt_file(filename):
+# def download_txt_file(username, filename):
 #     user = User.query.filter_by(username=get_jwt_identity()).first()
+#     if (username != user.username):
+#         return jsonify({"error": "Unauthorized access"}), 403
+
 #     return send_file(os.path.join(app.config['TXT_FOLDER'], user.username, filename), as_attachment=True)
 
-# @app.route('/download/md/<filename>', methods=['GET'])
+# @app.route('/download/md/<username>/<filename>', methods=['GET'])
 # @jwt_required()
-# def download_md_file(filename):
+# def download_md_file(username, filename):
 #     user = User.query.filter_by(username=get_jwt_identity()).first()
+#     if (username != user.username):
+#         return jsonify({"error": "Unauthorized access"}), 403
+
 #     return send_file(os.path.join(app.config['MD_FOLDER'], user.username, filename), as_attachment=True)
 
-# @app.route('/download/audio/<filename>', methods=['GET'])
+# @app.route('/download/audio/<username>/<filename>', methods=['GET'])
 # @jwt_required()
-# def download_audio_file(filename):
+# def download_audio_file(username, filename):
 #     user = User.query.filter_by(username=get_jwt_identity()).first()
+#     if (username != user.username):
+#         return jsonify({"error": "Unauthorized access"}), 403
+
 #     return send_file(os.path.join(app.config['AUDIO_FOLDER'], user.username, filename), as_attachment=True)
 
 def process_transcription(user, file_path, drive_url):
