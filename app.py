@@ -164,6 +164,7 @@ def process_transcription(user, file_path, drive_url):
 def transcribe_audio(audio_file_path, username):
     service = TranscriptionService()
 
+    os.makedirs(os.path.join(app.config['TXT_FOLDER'], username), exist_ok=True)
     output_path = os.path.join(app.config['TXT_FOLDER'], username, f'{Path(audio_file_path).stem}.txt')
     # Transcribe only
     success, txt_path, error = service.transcribe(audio_file_path, output_path)
