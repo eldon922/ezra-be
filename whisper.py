@@ -1,3 +1,4 @@
+import logging
 import time
 from faster_whisper import WhisperModel
 
@@ -8,7 +9,7 @@ def measure_execution_time(func):
         result = func(*args, **kwargs)
         end_time = time.time()
         execution_time = end_time - start_time
-        print(f"Execution time of {func.__name__}: {
+        logging.info(f"Execution time of {func.__name__}: {
               execution_time:.6f} seconds")
         return result
 
@@ -27,6 +28,6 @@ class Whisper:
     def transcribe(self, file_path):
         segments, info = self.model.transcribe(
             file_path, beam_size=5, language="id")
-        print("Detected language '%s' with probability %f" %
+        logging.info("Detected language '%s' with probability %f" %
               (info.language, info.language_probability))
         return segments

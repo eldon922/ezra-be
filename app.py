@@ -1,5 +1,7 @@
 import datetime
+import logging
 from pathlib import Path
+import sys
 import traceback
 from flask import Flask, request, jsonify, send_file
 from flask_executor import Executor
@@ -13,6 +15,13 @@ from database import db
 from TranscriptionService import TranscriptionService
 import gdown
 load_dotenv()
+
+logging.basicConfig(
+    filename="app.log",
+    level=logging.DEBUG,
+    format="%(asctime)s:%(levelname)s:%(message)s"
+    )
+logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')  # Change this in production!
@@ -157,7 +166,7 @@ def process_transcription(user, file_path, drive_url):
         db.session.commit()
 
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logging.error(f"An error occurred: {e}")
         # Log error
         error_log = ErrorLog(
             user_id=user.id,

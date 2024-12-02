@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Optional
 
@@ -24,13 +25,13 @@ class TranscriptionService:
             #     return False, None, str(transcript.error)
 
             for segment in segments:
-                print(segment.text)
+                logging.info(segment.text)
                 with open(output_path, 'w') as file:
                     file.write(segment.text)
             return True, output_path, None
 
         except Exception as e:
-            print(f"An error occurred: {e}")
+            logging.error(f"An error occurred: {e}")
             return False, None, str(e)
 
     def proofread(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
@@ -79,7 +80,7 @@ class TranscriptionService:
             return True, output_path, None
 
         except Exception as e:
-            print(f"An error occurred: {e}")
+            logging.error(f"An error occurred: {e}")
             return False, None, str(e)
 
     def convert_to_docx(self, input_file: str, output_file: str, reference_doc: str) -> tuple[bool, str, Optional[str]]:
@@ -94,5 +95,5 @@ class TranscriptionService:
             return True, output_file, None
 
         except Exception as e:
-            print(f"An error occurred: {e}")
+            logging.error(f"An error occurred: {e}")
             return False, None, str(e)
