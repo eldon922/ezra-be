@@ -1,6 +1,5 @@
 import time
-import torch
-from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+from faster_whisper import WhisperModel
 
 
 def measure_execution_time(func):
@@ -18,29 +17,16 @@ def measure_execution_time(func):
 
 class Whisper:
     def __init__(self):
-        device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+        model_size = "medium"
 
-        model_id = "openai/whisper-large-v3-turbo"
-
-        model = AutoModelForSpeechSeq2Seq.from_pretrained(
-            model_id, torch_dtype=torch_dtype, low_cpu_mem_usage=True, use_safetensors=True
-        )
-        model.to(device)
-
-        processor = AutoProcessor.from_pretrained(model_id)
-
-        self.pipe = pipeline(
-            "automatic-speech-recognition",
-            model=model,
-            tokenizer=processor.tokenizer,
-            feature_extractor=processor.feature_extractor,
-            torch_dtype=torch_dtype,
-            device=device,
-            return_timestamps=True,
-            generate_kwargs={"language": "indonesian"}
-        )
+        # Run on GPU with FP16
+        self.model = WhisperModel(
+            model_size, device="auto", compute_type="auto")
 
     @measure_execution_time
     def transcribe(self, file_path):
-        return self.pipe(file_path)
+        segments, info = self.model.transcribe(
+            file_path, beam_size=5, language="id")
+        print("Detected language '%s' with probability %f" %
+              (info.language, info.language_probability))
+        return segments

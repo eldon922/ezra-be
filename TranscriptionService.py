@@ -19,12 +19,14 @@ class TranscriptionService:
     def transcribe(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
         try:
-            transcript = self.transcriber.transcribe(file_path)
+            segments = self.transcriber.transcribe(file_path)
             # if transcript.status == aai.TranscriptStatus.error:
             #     return False, None, str(transcript.error)
 
-            with open(output_path, 'w') as file:
-                file.write(transcript['text'])
+            for segment in segments:
+                print(segment.text)
+                with open(output_path, 'w') as file:
+                    file.write(segment.text)
             return True, output_path, None
 
         except Exception as e:
