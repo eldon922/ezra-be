@@ -25,4 +25,3 @@ psycopg2-binary
 pypandoc-binary
 ffmpeg
 ffmpeg-python
-faster_whisper
