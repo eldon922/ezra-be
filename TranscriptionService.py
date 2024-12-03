@@ -37,45 +37,46 @@ class TranscriptionService:
     def proofread(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
         try:
-            with open(file_path, "r") as f:
+            with open(file_path, "r", encoding='utf-8') as f:
                 content = f.read()
 
-            # Split content into two parts
-            content_length = len(content)
-            mid_point = content_length // 2
+            # Split content into parts with maximum 500 words each
+            words = content.split()
+            parts = []
+            current_part = []
+            word_count = 0
 
-            # Find the nearest period to create clean splits
-            while mid_point < content_length and content[mid_point] != '.':
-                mid_point += 1
+            for word in words:
+                current_part.append(word)
+                word_count += 1
 
-            first_half = content[:mid_point + 1]
-            second_half = content[mid_point + 1:]
+                if word_count >= 500 and word.endswith('.'):
+                    parts.append(' '.join(current_part))
+                    current_part = []
+                    word_count = 0
 
-            with open("system_prompt/v2.3.txt", "r") as f:
+            if current_part:
+                parts.append(' '.join(current_part))
+
+            with open("system_prompt/v2.3.txt", "r", encoding='utf-8') as f:
                 system_prompt = f.read()
 
-            # Process first half
-            first_half_response = self.claude.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=8192,
-                temperature=0,
-                system=system_prompt,
-                messages=[{"role": "user", "content": first_half}])
-            first_half_result = first_half_response.content[0].text
+            # Process all parts
+            processed_parts = []
+            for part in parts:
+                response = self.claude.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    max_tokens=8192,
+                    temperature=0,
+                    system=system_prompt,
+                    messages=[{"role": "user", "content": part}]
+                )
+                processed_parts.append(response.content[0].text)
 
-            # Process second half
-            second_half_response = self.claude.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=8192,
-                temperature=0,
-                system=system_prompt,
-                messages=[{"role": "user", "content": second_half}])
-            second_half_result = second_half_response.content[0].text
+            # Combine all processed parts
+            combined_output = " ".join(processed_parts)
 
-            # Combine responses
-            combined_output = f"{first_half_result}\n{second_half_result}"
-
-            with open(output_path, 'w') as file:
+            with open(output_path, 'w', encoding='utf-8') as file:
                 file.write(combined_output)
             return True, output_path, None
 
