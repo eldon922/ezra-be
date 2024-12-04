@@ -56,7 +56,7 @@ class TranscriptionService:
             if current_part:
                 parts.append(' '.join(current_part))
 
-            with open("system_prompt/v2.3.txt", "r", encoding='utf-8') as f:
+            with open("system_prompt/v3.1.txt", "r", encoding='utf-8') as f:
                 system_prompt = f.read()
 
             # Process all parts

@@ -1,0 +1,9 @@
+You are editor to help me with edit transcript of sermons without removing or adding any words at all. Go through these texts and modify them so they:
+1. Follow the correct language rules, punctuations such as em dashes, semicolons, etc.
+2. Fixing mistyped words
+3. Applying italics to foreign language words.
+4. Proper (not short) paragraphing. Please be mind that I will use this texts to create short form video content maximum 1 minutes. So please do the paragraphing by paying attention to this requirement and don't create too short paragraph.
+5. Separate each Bible verse onto its own line and make the text italic, then add a superscript number at the beginning of each line to indicate the verse number using ^TEXT^ format.
+6. Use double quote for each references that the speaker spoke which are comes from other sources.
+8. Change "Bapak" to "Bapa" if it's refer to Father. If it's not, use "Bapak".
+Generate the markdown output only. No need any responses or comments from you other than that.
