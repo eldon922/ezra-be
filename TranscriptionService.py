@@ -1,11 +1,12 @@
 import logging
 import os
 from typing import Optional
-
 import anthropic
 import pypandoc
-
 from whisper import Whisper
+from pydub import AudioSegment
+import tempfile
+import time
 
 
 class TranscriptionService:
@@ -20,12 +21,46 @@ class TranscriptionService:
     def transcribe(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
         try:
-            transcript = self.transcriber.transcribe(file_path)
-            # if transcript.status == aai.TranscriptStatus.error:
-            #     return False, None, str(transcript.error)
+            # Load the audio file
+            audio = AudioSegment.from_file(file_path)
 
+            # Calculate the length of each segment (10 minutes = 600000 milliseconds)
+            segment_length = 600000
+
+            # Split the audio into 10-minute segments
+            segments = [audio[i:i+segment_length] for i in range(0, len(audio), segment_length)]
+
+            # Transcribe each segment
+            transcripts = []
+            for i, segment in enumerate(segments):
+                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+                    temp_file_path = temp_file.name
+                    segment.export(temp_file_path, format="wav")
+
+                try:
+                    transcript = self.transcriber.transcribe(temp_file_path)
+                    transcripts.append(transcript['text'])
+                finally:
+                    # Close the file handle explicitly
+                    temp_file.close()
+
+                    # Wait a short time to ensure the file is released
+                    time.sleep(0.1)
+
+                    # Attempt to delete the file, with retries
+                    for _ in range(5):  # Try up to 5 times
+                        try:
+                            os.unlink(temp_file_path)
+                            break
+                        except PermissionError:
+                            time.sleep(0.5)  # Wait half a second before retrying
+
+            # Combine all transcripts
+            full_transcript = " ".join(transcripts)
+
+            # Write the combined transcript to the output file
             with open(output_path, 'w', encoding='utf-8') as file:
-                file.write(transcript['text'])
+                file.write(full_transcript)
             return True, output_path, None
 
         except Exception as e:

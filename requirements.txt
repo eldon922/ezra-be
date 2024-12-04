@@ -25,3 +25,4 @@ psycopg2-binary
 pypandoc-binary
 ffmpeg
 ffmpeg-python
+pydub

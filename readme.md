@@ -1,9 +1,10 @@
 # Installation
 
-1. run `sudo apt install pandoc ffmpeg`
-2. create link for ffmpeg in `ezra-be/venv/bin/` from `usr/bin/`
+1. run `sudo apt install pandoc ffmpeg ffprobe`
+2. create link for ffmpeg & ffprobe in `ezra-be/venv/bin/` from `usr/bin/`
     ```
     ln -s /usr/bin/ffmpeg /root/ezra-be/venv/bin/ffmpeg
+    ln -s /usr/bin/ffprobe /root/ezra-be/venv/bin/ffprobe
     ```
 
 # Deployment Resources
