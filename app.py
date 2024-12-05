@@ -3,6 +3,7 @@ import datetime
 import logging
 from pathlib import Path
 import sys
+import time
 import traceback
 from flask import Flask, request, jsonify, send_file
 from flask_executor import Executor
@@ -13,7 +14,7 @@ from admin_routes import admin
 from models import User, Transcription, ErrorLog
 from dotenv import load_dotenv
 from database import db
-from TranscriptionService import TranscriptionService
+from TranscriptionService import transcription_service
 import gdown
 load_dotenv()
 
@@ -149,7 +150,7 @@ def process_transcription(user, file_path, drive_url):
             db.session.commit()
 
             # First step: Transcribe only
-            txt_path = transcribe_audio(file_path, user.username)
+            txt_path = transcribe_audio(file_path, user.username, transcription)
             transcription.txt_document_path = txt_path
 
             transcription.status = 'proofreading'
@@ -182,37 +183,39 @@ def process_transcription(user, file_path, drive_url):
             
     asyncio.run(process_transcription_async(user, file_path, drive_url))
 
-def transcribe_audio(audio_file_path, username):
-    service = TranscriptionService()
-
+def transcribe_audio(audio_file_path, username, transcription):
     os.makedirs(os.path.join(app.config['TXT_FOLDER'], username), exist_ok=True)
     output_path = os.path.join(app.config['TXT_FOLDER'], username, f'{Path(audio_file_path).stem}.txt')
-    # Transcribe only
-    success, txt_path, error = service.transcribe(audio_file_path, output_path)
-    if not success:
-        raise Exception(f"Transcription failed: {error}")
-    
-    return txt_path
+    while(True):
+        if (not transcription_service.isTranscribing):
+            transcription.status = 'transcribing'
+            db.session.commit()
+            # Transcribe only
+            success, txt_path, error = transcription_service.transcribe(audio_file_path, output_path)
+            if not success:
+                raise Exception(f"Transcription failed: {error}")
+            return txt_path
+        else:
+             # Wait for 5 seconds before checking again
+            transcription.status = 'waiting'
+            db.session.commit()
+            time.sleep(5)
 
 async def proofread_text(txt_path, username):
-    service = TranscriptionService()
-
     os.makedirs(os.path.join(app.config['MD_FOLDER'], username), exist_ok=True)
     output_path = os.path.join(app.config['MD_FOLDER'], username, f'{Path(txt_path).stem}.md')
     # Proofread the transcribed text
-    success, md_path, error = await service.proofread(txt_path, output_path)
+    success, md_path, error = await transcription_service.proofread(txt_path, output_path)
     if not success:
         raise Exception(f"Proofreading failed: {error}")
     
     return md_path
 
 def convert_md_to_word(md_path, username):
-    service = TranscriptionService()
-    
     os.makedirs(os.path.join(app.config['WORD_FOLDER'], username), exist_ok=True)
     output_file = os.path.join(app.config['WORD_FOLDER'], username, f'{Path(md_path).stem}.docx')
     reference_doc = 'reference_pandoc.docx'
-    success, docx_path, error = service.convert_to_docx(md_path, output_file, reference_doc)
+    success, docx_path, error = transcription_service.convert_to_docx(md_path, output_file, reference_doc)
     if not success:
         raise Exception(f"DOCX conversion failed: {error}")
     

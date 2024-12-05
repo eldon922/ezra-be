@@ -10,7 +10,7 @@ import tempfile
 import time
 
 
-class TranscriptionService:
+class _TranscriptionService:
     def __init__(self):
         self.anthropic_api_key = os.environ.get('ANTHROPIC_API_KEY')
 
@@ -19,8 +19,11 @@ class TranscriptionService:
         # Initialize Anthropic
         self.claude = anthropic.Anthropic(api_key=self.anthropic_api_key)
 
+        self.isTranscribing = False
+
     def transcribe(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
+        self.isTranscribing = True
         try:
             # Load the audio file
             audio = AudioSegment.from_file(file_path)
@@ -62,11 +65,15 @@ class TranscriptionService:
             # Write the combined transcript to the output file
             with open(output_path, 'w', encoding='utf-8') as file:
                 file.write(full_transcript)
+
             return True, output_path, None
 
         except Exception as e:
             logging.error(f"An error occurred: {e}")
             return False, None, str(e)
+        finally:
+            self.isTranscribing = False
+
 
     async def proofread(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
@@ -133,3 +140,5 @@ class TranscriptionService:
         except Exception as e:
             logging.error(f"An error occurred: {e}")
             return False, None, str(e)
+
+transcription_service = _TranscriptionService()
