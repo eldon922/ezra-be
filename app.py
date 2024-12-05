@@ -1,4 +1,3 @@
-import asyncio
 import datetime
 import logging
 from pathlib import Path
@@ -137,51 +136,48 @@ def download_word_file(username, filename):
 #     return send_file(os.path.join(app.config['AUDIO_FOLDER'], user.username, filename), as_attachment=True)
 
 def process_transcription(user, file_path, drive_url):
-    async def process_transcription_async(user, file_path, drive_url):
-        try:
-            # Create transcription record
-            transcription = Transcription(
-                user_id=user.id,
-                audio_file_path=file_path,
-                google_drive_url=drive_url,
-                status='transcribing'
-            )
-            db.session.add(transcription)
-            db.session.commit()
+    try:
+        # Create transcription record
+        transcription = Transcription(
+            user_id=user.id,
+            audio_file_path=file_path,
+            google_drive_url=drive_url,
+            status='transcribing'
+        )
+        db.session.add(transcription)
+        db.session.commit()
 
-            # First step: Transcribe only
-            txt_path = transcribe_audio(file_path, user.username, transcription)
-            transcription.txt_document_path = txt_path
+        # First step: Transcribe only
+        txt_path = transcribe_audio(file_path, user.username, transcription)
+        transcription.txt_document_path = txt_path
 
-            transcription.status = 'proofreading'
-            db.session.commit()
-            # Second step: Proofread and generate other formats
-            md_path = await proofread_text(txt_path, user.username)
-            transcription.md_document_path = md_path
+        transcription.status = 'proofreading'
+        db.session.commit()
+        # Second step: Proofread and generate other formats
+        md_path = proofread_text(txt_path, user.username)
+        transcription.md_document_path = md_path
 
-            transcription.status = 'converting'
-            db.session.commit()
-            word_path = convert_md_to_word(md_path, user.username)
-            transcription.word_document_path = word_path
+        transcription.status = 'converting'
+        db.session.commit()
+        word_path = convert_md_to_word(md_path, user.username)
+        transcription.word_document_path = word_path
 
-            # Final update to transcription record
-            transcription.status = 'completed'
-            db.session.commit()
+        # Final update to transcription record
+        transcription.status = 'completed'
+        db.session.commit()
 
-        except Exception as e:
-            logging.error(f"An error occurred: {e}")
-            # Log error
-            error_log = ErrorLog(
-                user_id=user.id,
-                transcription_id=transcription.id,
-                error_message=str(e),
-                stack_trace=traceback.format_exc()
-            )
-            transcription.status = 'error'
-            db.session.add(error_log)
-            db.session.commit()
-            
-    asyncio.run(process_transcription_async(user, file_path, drive_url))
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        # Log error
+        error_log = ErrorLog(
+            user_id=user.id,
+            transcription_id=transcription.id,
+            error_message=str(e),
+            stack_trace=traceback.format_exc()
+        )
+        transcription.status = 'error'
+        db.session.add(error_log)
+        db.session.commit()
 
 def transcribe_audio(audio_file_path, username, transcription):
     os.makedirs(os.path.join(app.config['TXT_FOLDER'], username), exist_ok=True)
@@ -201,11 +197,11 @@ def transcribe_audio(audio_file_path, username, transcription):
             db.session.commit()
             time.sleep(5)
 
-async def proofread_text(txt_path, username):
+def proofread_text(txt_path, username):
     os.makedirs(os.path.join(app.config['MD_FOLDER'], username), exist_ok=True)
     output_path = os.path.join(app.config['MD_FOLDER'], username, f'{Path(txt_path).stem}.md')
     # Proofread the transcribed text
-    success, md_path, error = await transcription_service.proofread(txt_path, output_path)
+    success, md_path, error = transcription_service.proofread(txt_path, output_path)
     if not success:
         raise Exception(f"Proofreading failed: {error}")
     

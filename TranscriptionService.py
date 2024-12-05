@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import os
 from typing import Optional
@@ -75,7 +74,7 @@ class _TranscriptionService:
             self.isTranscribing = False
 
 
-    async def proofread(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
+    def proofread(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
         try:
             with open(file_path, "r", encoding='utf-8') as f:
@@ -102,18 +101,17 @@ class _TranscriptionService:
             with open("system_prompt/v3.1.txt", "r", encoding='utf-8') as f:
                 system_prompt = f.read()
 
-            # Process all parts asynchronously
-            async def process_part(part):
-                response = await self.claude.messages.create(
+            # Process all parts
+            processed_parts = []
+            for part in parts:
+                response = self.claude.messages.create(
                     model="claude-3-5-sonnet-20241022",
                     max_tokens=8192,
                     temperature=0,
                     system=system_prompt,
                     messages=[{"role": "user", "content": part}]
                 )
-                return response.content[0].text
-
-            processed_parts = await asyncio.gather(*[process_part(part) for part in parts])
+                processed_parts.append(response.content[0].text)
 
             # Combine all processed parts
             combined_output = " ".join(processed_parts)
