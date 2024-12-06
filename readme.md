@@ -22,22 +22,35 @@
 # Linux Snippets
 
 ```shell
+# DEPLOY FRONTEND ########################################################################
+
 cd /var/www/ezra-fe
+git checkout main
 git pull
+npm install --legacy-peer-deps
 npm run build
 pm2 restart ezra-fe
+pm2 logs
 
 ------------------------------------------------------------------------------------------
 
 pm2 logs
 
-###########################################################################################
+# DEPLOY BACKEND #########################################################################
 
 cd /root/ezra-be
+git checkout main
 git pull
+source venv/bin/activate
+pip install -r requirements.txt
 sudo systemctl restart ezra-be
 sleep 5
 sudo systemctl status ezra-be
+
+------------------------------------------------------------------------------------------
+
+journalctl -e -u ezra-be
+htop
 
 ------------------------------------------------------------------------------------------
 
@@ -53,32 +66,22 @@ curl -H "Content-type: application/json" -d '{
     "password": "eldon444"
 }' 'http://localhost:5000/login'
 
-###########################################################################################
+# COPY/CUT/REMOVE/RENAME/LINK FILES ######################################################
 
 cp -r /usr/bin/ffmpeg /root/ezra-be/venv/bin/ffmpeg
-scp root@104.248.159.174:/root/ezra-be/audio/120sec.mp3 .
+scp root@104.248.159.174:/root/ezra-be/txt/eldon/2455-10minutes.txt .
 mv ezra-be /home/ezra_user/
-ln -s /usr/bin/ffmpeg /root/ezra-be/venv/bin/ffmpeg
+ln -s /usr/bin/ffprobe /root/ezra-be/venv/bin/ffprobe
 
-###########################################################################################
-
-sudo systemctl daemon-reload
-sudo systemctl stop ezra-be
-sudo systemctl start ezra-be
-sudo systemctl enable ezra-be
-
-------------------------------------------------------------------------------------------
-
-journalctl -e -u ezra-be
-htop
-
-###########################################################################################
+# DATABASE ###############################################################################
 
 sudo -u ezra_user psql ezra
 
-###########################################################################################
+# NGINX FRONTEND #########################################################################
 
 sudo nano /etc/nginx/sites-available/transcript.griibandung.org
+
+------------------------------------------------------------------------------------------
 
 server {
   listen 80;
@@ -100,9 +103,11 @@ sudo systemctl restart nginx
 
 sudo ln -s /etc/nginx/sites-available/transcript.griibandung.org /etc/nginx/sites-enabled/
 
-###########################################################################################
+# NGINX BACKEND ##########################################################################
 
 sudo nano /etc/nginx/sites-available/ezra-be
+
+------------------------------------------------------------------------------------------
 
 server {
     listen 5000;
@@ -124,9 +129,33 @@ sudo systemctl restart nginx
 
 sudo ln -s /etc/nginx/sites-available/ezra-be /etc/nginx/sites-enabled
 
-###########################################################################################
+# GUNICORN BACKEND SERVICE ###############################################################
 
 sudo nano /etc/systemd/system/ezra-be.service
+
+------------------------------------------------------------------------------------------
+
+[Unit]
+Description=Gunicorn instance to serve ezra-be
+After=network.target
+
+[Service]
+User=root
+Group=www-data
+WorkingDirectory=/root/ezra-be
+Environment="PATH=/root/ezra-be/venv/bin"
+ExecStart=/root/ezra-be/venv/bin/gunicorn --timeout 0 --threads 9 --workers 9 --bind unix:ezra-be.sock -m 007 wsgi:app
+
+# Memory management
+MemoryAccounting=yes
+MemoryHigh=6G
+
+CPUQuota=80%
+
+[Install]
+WantedBy=multi-user.target
+
+------------------------------------------------------------------------------------------
 
 [Unit]
 Description=Gunicorn instance to serve ezra-be
@@ -144,21 +173,14 @@ WantedBy=multi-user.target
 
 ------------------------------------------------------------------------------------------
 
-[Unit]
-Description=Gunicorn instance to serve ezra-be
-After=network.target
+sudo systemctl daemon-reload
+sudo systemctl stop ezra-be
+sudo systemctl start ezra-be
+sudo systemctl restart ezra-be
+sudo systemctl enable ezra-be
+sudo systemctl status ezra-be
 
-[Service]
-User=root
-Group=www-data
-WorkingDirectory=/root/ezra-be
-Environment="PATH=/root/ezra-be/venv/bin"
-ExecStart=/root/ezra-be/venv/bin/gunicorn --workers 3 --bind unix:ezra-be.sock -m 007 wsgi:app
-
-[Install]
-WantedBy=multi-user.target
-
-###########################################################################################
+# SSL #####################################################################################
 
 sudo certbot --nginx -d transcript.griibandung.org -d www.transcript.griibandung.org
 ```
