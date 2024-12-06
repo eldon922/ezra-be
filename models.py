@@ -15,7 +15,9 @@ class User(db.Model):
         return {
             'id': self.id,
             'username': self.username,
-            'is_admin': self.is_admin
+            'is_admin': self.is_admin,
+            'created_at': self.created_at.isoformat(),
+            'transcription_count': len(self.transcriptions)
         }
 
 class Transcription(db.Model):
@@ -44,7 +46,8 @@ class Transcription(db.Model):
             'word_document_path': self.word_document_path,
             'status': self.status,
             'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat()
+            'updated_at': self.updated_at.isoformat(),
+            'username': self.user.username
         }
 
 class ErrorLog(db.Model):

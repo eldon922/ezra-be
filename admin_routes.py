@@ -73,13 +73,39 @@ def delete_user(user_id):
     if user.is_admin:
         return jsonify({"error": "User is admin"}), 404
 
-    db.session.delete(user)
     try:
+        # Delete associated records from related tables
+        ErrorLog.query.filter_by(user_id=user_id).delete()
+        Transcription.query.filter_by(user_id=user_id).delete()
+
+        # Delete the user
+        db.session.delete(user)
+
+        # Delete associated files
+        user_folders = [
+            os.path.join(current_app.config['AUDIO_FOLDER'], user.username),
+            os.path.join(current_app.config['TXT_FOLDER'], user.username),
+            os.path.join(current_app.config['MD_FOLDER'], user.username),
+            os.path.join(current_app.config['WORD_FOLDER'], user.username)
+        ]
+
+        # Commit database changes first
         db.session.commit()
-        return jsonify({"message": "User deleted successfully"}), 200
+
+        # Then handle file system operations
+        for folder in user_folders:
+            if os.path.exists(folder):
+                for file in os.listdir(folder):
+                    os.remove(os.path.join(folder, file))
+                os.rmdir(folder)
+        return jsonify({"message": "User and all associated data deleted successfully"}), 200
+
+    except OSError as e:
+        db.session.rollback()
+        return jsonify({"error": f"Error deleting user files: {str(e)}"}), 500
     except SQLAlchemyError as e:
         db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
 
 
 @admin.route('/logs', methods=['GET'])
