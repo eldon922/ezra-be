@@ -1,3 +1,4 @@
+from functools import cache
 import logging
 import os
 from typing import Optional
@@ -145,4 +146,6 @@ class _TranscriptionService:
             logging.error(f"An error occurred: {e}")
             return False, None, str(e)
 
-transcription_service = _TranscriptionService()
+@cache
+def get_transcription_service() -> _TranscriptionService:
+    return _TranscriptionService()

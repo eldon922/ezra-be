@@ -13,7 +13,7 @@ from admin_routes import admin
 from models import User, Transcription, ErrorLog
 from dotenv import load_dotenv
 from database import db
-from transcription_service import transcription_service
+from transcription_service import get_transcription_service
 import gdown
 load_dotenv()
 
@@ -183,11 +183,11 @@ def transcribe_audio(audio_file_path, username, transcription):
     os.makedirs(os.path.join(app.config['TXT_FOLDER'], username), exist_ok=True)
     output_path = os.path.join(app.config['TXT_FOLDER'], username, f'{Path(audio_file_path).stem}.txt')
     while(True):
-        if (not transcription_service.isTranscribing):
+        if (not get_transcription_service().isTranscribing):
             transcription.status = 'transcribing'
             db.session.commit()
             # Transcribe only
-            success, txt_path, error = transcription_service.transcribe(audio_file_path, output_path)
+            success, txt_path, error = get_transcription_service().transcribe(audio_file_path, output_path)
             if not success:
                 raise Exception(f"Transcription failed: {error}")
             return txt_path
@@ -201,7 +201,7 @@ def proofread_text(txt_path, username):
     os.makedirs(os.path.join(app.config['MD_FOLDER'], username), exist_ok=True)
     output_path = os.path.join(app.config['MD_FOLDER'], username, f'{Path(txt_path).stem}.md')
     # Proofread the transcribed text
-    success, md_path, error = transcription_service.proofread(txt_path, output_path)
+    success, md_path, error = get_transcription_service().proofread(txt_path, output_path)
     if not success:
         raise Exception(f"Proofreading failed: {error}")
     
@@ -211,7 +211,7 @@ def convert_md_to_word(md_path, username):
     os.makedirs(os.path.join(app.config['WORD_FOLDER'], username), exist_ok=True)
     output_file = os.path.join(app.config['WORD_FOLDER'], username, f'{Path(md_path).stem}.docx')
     reference_doc = 'reference_pandoc.docx'
-    success, docx_path, error = transcription_service.convert_to_docx(md_path, output_file, reference_doc)
+    success, docx_path, error = get_transcription_service().convert_to_docx(md_path, output_file, reference_doc)
     if not success:
         raise Exception(f"DOCX conversion failed: {error}")
     
