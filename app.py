@@ -13,7 +13,7 @@ from admin_routes import admin
 from models import User, Transcription, ErrorLog
 from dotenv import load_dotenv
 from database import db
-from TranscriptionService import transcription_service
+from transcription_service import transcription_service
 import gdown
 load_dotenv()
 

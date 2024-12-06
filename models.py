@@ -66,3 +66,39 @@ class ErrorLog(db.Model):
             'error_message': self.error_message,
             'stack_trace': self.stack_trace
         }
+    
+class SystemPrompt(db.Model):
+    __tablename__ = 'system_prompts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    version = db.Column(db.String(100), nullable=False)
+    prompt = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), server_default=db.func.current_timestamp())
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'version': self.version,
+            'prompt': self.prompt,
+            'created_at': self.created_at.isoformat()
+        }
+
+class SystemSettings(db.Model):
+    __tablename__ = 'system_settings'
+
+    id = db.Column(db.Integer, primary_key=True)
+    setting_key = db.Column(db.String(100), unique=True, nullable=False)
+    setting_value = db.Column(db.Text)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime(timezone=True), server_default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime(timezone=True), server_default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'setting_key': self.setting_key,
+            'setting_value': self.setting_value,
+            'description': self.description,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }

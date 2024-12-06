@@ -3,6 +3,7 @@ import os
 from typing import Optional
 import anthropic
 import pypandoc
+from models import SystemPrompt, SystemSettings
 from whisper import Whisper
 from pydub import AudioSegment
 import tempfile
@@ -98,9 +99,14 @@ class _TranscriptionService:
             if current_part:
                 parts.append(' '.join(current_part))
 
-            with open("system_prompt/v3.1.txt", "r", encoding='utf-8') as f:
-                system_prompt = f.read()
+            setting = SystemSettings.query.filter_by(setting_key='active_system_prompt_id').first()
+            if not setting:
+                raise ValueError("No active system prompt set")
 
+            system_prompt = SystemPrompt.query.get(setting.setting_value)
+            if not system_prompt:
+                raise ValueError("Active system prompt not foun")
+            
             # Process all parts
             processed_parts = []
             for part in parts:
@@ -108,7 +114,7 @@ class _TranscriptionService:
                     model="claude-3-5-sonnet-20241022",
                     max_tokens=8192,
                     temperature=0,
-                    system=system_prompt,
+                    system=system_prompt.prompt,
                     messages=[{"role": "user", "content": part}]
                 )
                 processed_parts.append(response.content[0].text)
