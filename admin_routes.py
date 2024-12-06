@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from functools import wraps
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy.exc import SQLAlchemyError
 from database import db
@@ -7,27 +8,37 @@ from werkzeug.security import generate_password_hash
 
 admin = Blueprint('admin', __name__)
 
+
 def is_admin(username):
     user = User.query.filter_by(username=username).first()
-    return user and user.is_admin
+    if user:
+        return user.is_admin
+    return False
+
+
+def require_admin(func):
+    @wraps(func)  # Keeps the original function metadata
+    def wrapper(*args, **kwargs):
+        current_user = get_jwt_identity()
+        if not is_admin(current_user):
+            return jsonify({"error": "Admin access required"}), 403
+        # Call the actual function only if authorized
+        return func(*args, **kwargs)
+    return wrapper
+
 
 @admin.route('/users', methods=['GET'])
 @jwt_required()
+@require_admin
 def get_users():
-    current_user = get_jwt_identity()
-    if not is_admin(current_user):
-        return jsonify({"error": "Admin access required"}), 403
-
     users = User.query.all()
     return jsonify([user.to_dict() for user in users]), 200
 
+
 @admin.route('/users', methods=['POST'])
 @jwt_required()
+@require_admin
 def add_user():
-    current_user = get_jwt_identity()
-    if not is_admin(current_user):
-        return jsonify({"error": "Admin access required"}), 403
-
     data = request.json
     username = data.get('username')
     password = data.get('password')
@@ -39,7 +50,8 @@ def add_user():
     if User.query.filter_by(username=username).first():
         return jsonify({"error": "Username already exists"}), 400
 
-    new_user = User(username=username, password=generate_password_hash(password), is_admin=is_new_user_admin)
+    new_user = User(username=username, password=generate_password_hash(
+        password), is_admin=is_new_user_admin)
     db.session.add(new_user)
     try:
         db.session.commit()
@@ -48,17 +60,15 @@ def add_user():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+
 @admin.route('/users/<int:user_id>', methods=['DELETE'])
 @jwt_required()
+@require_admin
 def delete_user(user_id):
-    current_user = get_jwt_identity()
-    if not is_admin(current_user):
-        return jsonify({"error": "Admin access required"}), 403
-
     user = User.query.get(user_id)
     if not user:
         return jsonify({"error": "User not found"}), 404
-    
+
     if user.is_admin:
         return jsonify({"error": "User is admin"}), 404
 
@@ -70,43 +80,37 @@ def delete_user(user_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+
 @admin.route('/logs', methods=['GET'])
 @jwt_required()
+@require_admin
 def get_logs():
-    current_user = get_jwt_identity()
-    if not is_admin(current_user):
-        return jsonify({"error": "Admin access required"}), 403
-
     logs = ErrorLog.query.order_by(ErrorLog.created_at.desc()).limit(100).all()
     return jsonify([log.to_dict() for log in logs]), 200
 
+
 @admin.route('/transcriptions', methods=['GET'])
 @jwt_required()
+@require_admin
 def get_all_transcriptions():
-    current_user = get_jwt_identity()
-    if not is_admin(current_user):
-        return jsonify({"error": "Admin access required"}), 403
-
-    transcriptions = Transcription.query.order_by(Transcription.created_at.desc()).limit(100).all()
+    transcriptions = Transcription.query.order_by(
+        Transcription.created_at.desc()).limit(100).all()
     return jsonify([transcription.to_dict() for transcription in transcriptions]), 200
+
 
 @admin.route('/system-prompts', methods=['GET'])
 @jwt_required()
+@require_admin
 def get_all_system_prompts():
-    current_user = get_jwt_identity()
-    if not is_admin(current_user):
-        return jsonify({"error": "Admin access required"}), 403
-
-    system_prompts = SystemPrompt.query.order_by(SystemPrompt.created_at.desc()).limit(100).all()
+    system_prompts = SystemPrompt.query.order_by(
+        SystemPrompt.created_at.desc()).limit(100).all()
     return jsonify([system_prompt.to_dict() for system_prompt in system_prompts]), 200
+
 
 @admin.route('/system-prompts', methods=['POST'])
 @jwt_required()
+@require_admin
 def add_system_prompt():
-    current_user = get_jwt_identity()
-    if not is_admin(current_user):
-        return jsonify({"error": "Admin access required"}), 403
-
     data = request.json
     version = data.get('version')
     prompt = data.get('prompt')
@@ -122,15 +126,14 @@ def add_system_prompt():
     except SQLAlchemyError as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-    
+
+
 @admin.route('/settings/active-system-prompt', methods=['GET'])
 @jwt_required()
+@require_admin
 def get_active_system_prompt():
-    current_user = get_jwt_identity()
-    if not is_admin(current_user):
-        return jsonify({"error": "Admin access required"}), 403
-
-    setting = SystemSettings.query.filter_by(setting_key='active_system_prompt_id').first()
+    setting = SystemSettings.query.filter_by(
+        setting_key='active_system_prompt_id').first()
     if not setting:
         return jsonify({"error": "No active system prompt set"}), 404
 
@@ -139,14 +142,12 @@ def get_active_system_prompt():
         return jsonify({"error": "Active system prompt not found"}), 404
 
     return jsonify(prompt.to_dict()), 200
-    
+
+
 @admin.route('/settings/active-system-prompt', methods=['POST'])
 @jwt_required()
+@require_admin
 def set_active_system_prompt():
-    current_user = get_jwt_identity()
-    if not is_admin(current_user):
-        return jsonify({"error": "Admin access required"}), 403
-
     data = request.json
     system_prompt_id = data.get('system_prompt_id')
 
@@ -157,7 +158,8 @@ def set_active_system_prompt():
     if not prompt:
         return jsonify({"error": "System prompt not found"}), 404
 
-    setting = SystemSettings.query.filter_by(setting_key='active_system_prompt_id').first()
+    setting = SystemSettings.query.filter_by(
+        setting_key='active_system_prompt_id').first()
     if setting:
         setting.setting_value = str(system_prompt_id)
     else:
@@ -174,24 +176,20 @@ def set_active_system_prompt():
     except SQLAlchemyError as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-    
+
+
 @admin.route('/settings', methods=['GET'])
 @jwt_required()
+@require_admin
 def get_settings():
-    current_user = get_jwt_identity()
-    if not is_admin(current_user):
-        return jsonify({"error": "Admin access required"}), 403
-
     settings = SystemSettings.query.all()
     return jsonify([setting.to_dict() for setting in settings]), 200
 
+
 @admin.route('/settings', methods=['POST'])
 @jwt_required()
+@require_admin
 def add_setting():
-    current_user = get_jwt_identity()
-    if not is_admin(current_user):
-        return jsonify({"error": "Admin access required"}), 403
-
     data = request.json
     key = data.get('setting_key')
     value = data.get('setting_value')
@@ -203,7 +201,8 @@ def add_setting():
     if SystemSettings.query.filter_by(setting_key=key).first():
         return jsonify({"error": "Setting key already exists"}), 400
 
-    new_setting = SystemSettings(setting_key=key, setting_value=value, description=description)
+    new_setting = SystemSettings(
+        setting_key=key, setting_value=value, description=description)
     db.session.add(new_setting)
     try:
         db.session.commit()
@@ -212,13 +211,11 @@ def add_setting():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+
 @admin.route('/settings/<int:setting_id>', methods=['PUT'])
 @jwt_required()
+@require_admin
 def update_setting(setting_id):
-    current_user = get_jwt_identity()
-    if not is_admin(current_user):
-        return jsonify({"error": "Admin access required"}), 403
-
     setting = SystemSettings.query.get(setting_id)
     if not setting:
         return jsonify({"error": "Setting not found"}), 404
@@ -234,13 +231,11 @@ def update_setting(setting_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+
 @admin.route('/settings/<int:setting_id>', methods=['DELETE'])
 @jwt_required()
+@require_admin
 def delete_setting(setting_id):
-    current_user = get_jwt_identity()
-    if not is_admin(current_user):
-        return jsonify({"error": "Admin access required"}), 403
-
     setting = SystemSettings.query.get(setting_id)
     if not setting:
         return jsonify({"error": "Setting not found"}), 404
@@ -256,11 +251,8 @@ def delete_setting(setting_id):
 
 @admin.route('/stats', methods=['GET'])
 @jwt_required()
+@require_admin
 def get_stats():
-    current_user = get_jwt_identity()
-    if not is_admin(current_user):
-        return jsonify({"error": "Admin access required"}), 403
-
     total_users = User.query.count()
     total_transcriptions = Transcription.query.count()
     total_errors = ErrorLog.query.count()
