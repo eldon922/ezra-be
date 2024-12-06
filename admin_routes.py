@@ -1,5 +1,6 @@
-from flask import Blueprint, request, jsonify
 from functools import wraps
+import os
+from flask import Blueprint, current_app, request, jsonify, send_file
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy.exc import SQLAlchemyError
 from database import db
@@ -262,3 +263,31 @@ def get_stats():
         "total_transcriptions": total_transcriptions,
         "total_errors": total_errors
     }), 200
+
+
+@admin.route('/download/audio/<username>/<filename>', methods=['GET'])
+@jwt_required()
+@require_admin
+def download_audio_file(username, filename):
+    return send_file(os.path.join(current_app.config['AUDIO_FOLDER'], username, filename), as_attachment=True)
+
+
+@admin.route('/download/txt/<username>/<filename>', methods=['GET'])
+@jwt_required()
+@require_admin
+def download_txt_file(username, filename):
+    return send_file(os.path.join(current_app.config['TXT_FOLDER'], username, filename), as_attachment=True)
+
+
+@admin.route('/download/md/<username>/<filename>', methods=['GET'])
+@jwt_required()
+@require_admin
+def download_md_file(username, filename):
+    return send_file(os.path.join(current_app.config['MD_FOLDER'], username, filename), as_attachment=True)
+
+
+@admin.route('/download/word/<username>/<filename>', methods=['GET'])
+@jwt_required()
+@require_admin
+def download_word_file(username, filename):
+    return send_file(os.path.join(current_app.config['WORD_FOLDER'], username, filename), as_attachment=True)
