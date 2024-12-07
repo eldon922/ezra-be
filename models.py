@@ -70,8 +70,24 @@ class ErrorLog(db.Model):
             'stack_trace': self.stack_trace
         }
     
-class SystemPrompt(db.Model):
-    __tablename__ = 'system_prompts'
+class TranscribePrompt(db.Model):
+    __tablename__ = 'transcribe_prompts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    version = db.Column(db.String(100), nullable=False)
+    prompt = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), server_default=db.func.current_timestamp())
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'version': self.version,
+            'prompt': self.prompt,
+            'created_at': self.created_at.isoformat()
+        }
+    
+class ProofreadPrompt(db.Model):
+    __tablename__ = 'proofread_prompts'
 
     id = db.Column(db.Integer, primary_key=True)
     version = db.Column(db.String(100), nullable=False)
@@ -86,7 +102,7 @@ class SystemPrompt(db.Model):
             'created_at': self.created_at.isoformat()
         }
 
-class SystemSettings(db.Model):
+class SystemSetting(db.Model):
     __tablename__ = 'system_settings'
 
     id = db.Column(db.Integer, primary_key=True)

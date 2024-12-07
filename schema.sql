@@ -37,8 +37,16 @@ CREATE TABLE error_logs (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create SystemPrompts table
-CREATE TABLE system_prompts (
+-- Create TranscribePrompts table
+CREATE TABLE transcribe_prompts (
+    id SERIAL PRIMARY KEY,
+    version VARCHAR(100) NOT NULL,
+    prompt TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create ProofreadPrompts table
+CREATE TABLE proofread_prompts (
     id SERIAL PRIMARY KEY,
     version VARCHAR(100) NOT NULL,
     prompt TEXT NOT NULL,
@@ -55,8 +63,11 @@ CREATE TABLE system_settings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create index on system_prompts table for faster version lookups
-CREATE INDEX idx_system_prompts_version ON system_prompts(version);
+-- Create index on transcribe_prompts table for faster version lookups
+CREATE INDEX idx_transcribe_prompts_version ON transcribe_prompts(version);
+
+-- Create index on proofread_prompts table for faster version lookups
+CREATE INDEX idx_proofread_prompts_version ON proofread_prompts(version);
 
 -- Create index on users table for faster lookups
 CREATE INDEX idx_users_username ON users(username);
@@ -99,20 +110,38 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ezra_user;
 INSERT INTO users (username, password, is_admin)
 VALUES ('admin', 'scrypt:32768:8:1$bZFLqrx1BYdchGLn$17766ff7275041bc914d608ddb5087862deb396ff507baa7f9318bafd2afea5f905dff6a4d37e1bb57dd8ad6ea6c3dfec6fa293239176059f03ba4691fb2d452', TRUE);
 
--- Insert initial system prompt
-INSERT INTO system_prompts (version, prompt)
-VALUES ('3.1', $$You are editor to help me with editing transcript of sermons so it:
+-- Insert initial transcribe prompt
+INSERT INTO transcribe_prompts (version, prompt)
+VALUES ('1', 'Mazmur, saudara.');
 
-1. Follow the correct language rules, punctuations such as em dashes, semicolons, etc.
-2. Fixing mistyped words
-3. Applying italics to foreign language words.
-4. Proper (not short) paragraphing. Please be mind that I will use this texts to create short form video content maximum 1 minutes. So please do the paragraphing by paying attention to this requirement and don't create too short paragraph.
-5. Separate each Bible verse onto its own line and make the text italic, then add a superscript number at the beginning of each line to indicate the verse number using ^TEXT^ format.
-6. Use double quote for each references that the speaker spoke which are comes from other sources.
-8. Change "Bapak" to "Bapa" if it's refer to Father. If it's not, use "Bapak".
+-- Insert initial transcribe settings
+INSERT INTO system_settings (setting_key, setting_value, description)
+VALUES ('active_transcribe_prompt_id', '1', 'The ID of the currently active transcribe prompt');
 
-But without removing any words at all, without adding any words at all, without restructuring any sentence at all, without changing any words order in any sentences at all. Generate the markdown output only. No need any responses or comments from you other than that.$$);
+-- Insert initial proofread prompt
+INSERT INTO proofread_prompts (version, prompt)
+VALUES ('4.1', $$You are an AI assistant tasked with editing a transcript of a sermon. Your goal is to improve the text's word level correctness and formatting while strictly adhering to specific rules.
+
+Please edit the transcript according to the following rules:
+
+1. Apply correct language rules and punctuation, including proper use of em dashes, semicolons, etc.
+2. Fix any mistyped words, such as name of Bible books.
+3. Apply italics to foreign language words.
+4. Create proper paragraphs, keeping in mind that the text will be used for short-form video content of maximum 1 minute duration. Avoid creating paragraphs that are too short.
+5. Separate each Bible verse onto its own line and make the text italic. Add a superscript number at the beginning of each line to indicate the verse number using ^TEXT^ format.
+6. Use double quotes for references that the speaker cites from other sources.
+7. Change "Bapak" to "Bapa" if it refers to Father. If it doesn't refer to Father, keep it as "Bapak".
+
+It is crucial that you follow these instructions precisely:
+- Do not remove any words.
+- Do not add any words.
+- Do not restructure any sentences.
+- Do not change the order of words in any sentences.
+
+Generate the edited transcript in markdown format only. Do not provide any responses or comments other than the edited text.
+
+Begin your edited transcript immediately after these instructions, without any preamble or explanation.$$);
 
 -- Insert initial system settings
 INSERT INTO system_settings (setting_key, setting_value, description)
-VALUES ('active_system_prompt_id', '1', 'The ID of the currently active system prompt');
+VALUES ('active_proofread_prompt_id', '1', 'The ID of the currently active proofread prompt');

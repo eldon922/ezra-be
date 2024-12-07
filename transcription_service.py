@@ -4,8 +4,8 @@ import os
 from typing import Optional
 import anthropic
 import pypandoc
-from models import SystemPrompt, SystemSettings
-from whisper import Whisper
+from models import ProofreadPrompt, SystemSetting
+from asr_model import ASRModel
 from pydub import AudioSegment
 import tempfile
 import time
@@ -15,7 +15,7 @@ class _TranscriptionService:
     def __init__(self):
         self.anthropic_api_key = os.environ.get('ANTHROPIC_API_KEY')
 
-        self.transcriber = Whisper()
+        self.transcriber = ASRModel()
 
         # Initialize Anthropic
         self.claude = anthropic.Anthropic(api_key=self.anthropic_api_key)
@@ -26,6 +26,13 @@ class _TranscriptionService:
         """Returns (success, output_path, error_message)"""
         self.isTranscribing = True
         try:
+            setting = SystemSetting.query.filter_by(setting_key='active_transcribe_prompt_id').first()
+            if not setting:
+                raise ValueError("No active transcribe prompt set")
+
+            transcribe_prompt = ProofreadPrompt.query.get(setting.setting_value)
+            if not transcribe_prompt:
+                raise ValueError("Active transcribe prompt not found")
             # Load the audio file
             audio = AudioSegment.from_file(file_path)
 
@@ -43,7 +50,7 @@ class _TranscriptionService:
                     segment.export(temp_file_path, format="wav")
 
                 try:
-                    transcript = self.transcriber.transcribe(temp_file_path)
+                    transcript = self.transcriber.inference(temp_file_path, 'id', transcribe_prompt.prompt)
                     transcripts.append(transcript['text'])
                 finally:
                     # Close the file handle explicitly
@@ -100,13 +107,13 @@ class _TranscriptionService:
             if current_part:
                 parts.append(' '.join(current_part))
 
-            setting = SystemSettings.query.filter_by(setting_key='active_system_prompt_id').first()
+            setting = SystemSetting.query.filter_by(setting_key='active_proofread_prompt_id').first()
             if not setting:
-                raise ValueError("No active system prompt set")
+                raise ValueError("No active proofread prompt set")
 
-            system_prompt = SystemPrompt.query.get(setting.setting_value)
-            if not system_prompt:
-                raise ValueError("Active system prompt not foun")
+            proofread_prompt = ProofreadPrompt.query.get(setting.setting_value)
+            if not proofread_prompt:
+                raise ValueError("Active proofread prompt not found")
             
             # Process all parts
             processed_parts = []
@@ -115,7 +122,7 @@ class _TranscriptionService:
                     model="claude-3-5-sonnet-20241022",
                     max_tokens=8192,
                     temperature=0,
-                    system=system_prompt.prompt,
+                    system=proofread_prompt.prompt,
                     messages=[{"role": "user", "content": part}]
                 )
                 processed_parts.append(response.content[0].text)

@@ -4,7 +4,7 @@ from flask import Blueprint, current_app, request, jsonify, send_file
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy.exc import SQLAlchemyError
 from database import db
-from models import SystemPrompt, SystemSettings, User, Transcription, ErrorLog
+from models import ProofreadPrompt, SystemSetting, TranscribePrompt, User, Transcription, ErrorLog
 from werkzeug.security import generate_password_hash
 
 admin = Blueprint('admin', __name__)
@@ -125,19 +125,19 @@ def get_all_transcriptions():
     return jsonify([transcription.to_dict() for transcription in transcriptions]), 200
 
 
-@admin.route('/system-prompts', methods=['GET'])
+@admin.route('/transcribe-prompts', methods=['GET'])
 @jwt_required()
 @require_admin
-def get_all_system_prompts():
-    system_prompts = SystemPrompt.query.order_by(
-        SystemPrompt.created_at.desc()).limit(100).all()
-    return jsonify([system_prompt.to_dict() for system_prompt in system_prompts]), 200
+def get_all_transcribe_prompts():
+    transcribe_prompts = TranscribePrompt.query.order_by(
+        TranscribePrompt.created_at.desc()).limit(100).all()
+    return jsonify([transcribe_prompt.to_dict() for transcribe_prompt in transcribe_prompts]), 200
 
 
-@admin.route('/system-prompts', methods=['POST'])
+@admin.route('/transcribe-prompts', methods=['POST'])
 @jwt_required()
 @require_admin
-def add_system_prompt():
+def add_transcribe_prompt():
     data = request.json
     version = data.get('version')
     prompt = data.get('prompt')
@@ -145,61 +145,141 @@ def add_system_prompt():
     if not version or not prompt:
         return jsonify({"error": "Version and prompt are required"}), 400
 
-    new_prompt = SystemPrompt(version=version, prompt=prompt)
+    new_prompt = TranscribePrompt(version=version, prompt=prompt)
     db.session.add(new_prompt)
     try:
         db.session.commit()
-        return jsonify({"message": "System prompt created successfully"}), 201
+        return jsonify({"message": "Transcribe prompt created successfully"}), 201
     except SQLAlchemyError as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
 
-@admin.route('/settings/active-system-prompt', methods=['GET'])
+@admin.route('/settings/active-transcribe-prompt', methods=['GET'])
 @jwt_required()
 @require_admin
-def get_active_system_prompt():
-    setting = SystemSettings.query.filter_by(
-        setting_key='active_system_prompt_id').first()
+def get_active_transcribe_prompt():
+    setting = SystemSetting.query.filter_by(
+        setting_key='active_transcribe_prompt_id').first()
     if not setting:
-        return jsonify({"error": "No active system prompt set"}), 404
+        return jsonify({"error": "No active transcribe prompt set"}), 404
 
-    prompt = SystemPrompt.query.get(setting.setting_value)
+    prompt = TranscribePrompt.query.get(setting.setting_value)
     if not prompt:
-        return jsonify({"error": "Active system prompt not found"}), 404
+        return jsonify({"error": "Active transcribe prompt not found"}), 404
 
     return jsonify(prompt.to_dict()), 200
 
 
-@admin.route('/settings/active-system-prompt', methods=['POST'])
+@admin.route('/settings/active-transcribe-prompt', methods=['POST'])
 @jwt_required()
 @require_admin
-def set_active_system_prompt():
+def set_active_transcribe_prompt():
     data = request.json
-    system_prompt_id = data.get('system_prompt_id')
+    transcribe_prompt_id = data.get('transcribe_prompt_id')
 
-    if not system_prompt_id:
-        return jsonify({"error": "System prompt ID is required"}), 400
+    if not transcribe_prompt_id:
+        return jsonify({"error": "Transcribe prompt ID is required"}), 400
 
-    prompt = SystemPrompt.query.get(system_prompt_id)
+    prompt = TranscribePrompt.query.get(transcribe_prompt_id)
     if not prompt:
-        return jsonify({"error": "System prompt not found"}), 404
+        return jsonify({"error": "Transcribe prompt not found"}), 404
 
-    setting = SystemSettings.query.filter_by(
-        setting_key='active_system_prompt_id').first()
+    setting = SystemSetting.query.filter_by(
+        setting_key='active_transcribe_prompt_id').first()
     if setting:
-        setting.setting_value = str(system_prompt_id)
+        setting.setting_value = str(transcribe_prompt_id)
     else:
-        setting = SystemSettings(
-            setting_key='active_system_prompt_id',
-            setting_value=str(system_prompt_id),
-            description='ID of the currently active system prompt'
+        setting = SystemSetting(
+            setting_key='active_transcribe_prompt_id',
+            setting_value=str(transcribe_prompt_id),
+            description='ID of the currently active transcribe prompt'
         )
         db.session.add(setting)
 
     try:
         db.session.commit()
-        return jsonify({"message": "Active system prompt updated successfully"}), 200
+        return jsonify({"message": "Active transcribe prompt updated successfully"}), 200
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+@admin.route('/proofread-prompts', methods=['GET'])
+@jwt_required()
+@require_admin
+def get_all_proofread_prompts():
+    proofread_prompts = ProofreadPrompt.query.order_by(
+        ProofreadPrompt.created_at.desc()).limit(100).all()
+    return jsonify([proofread_prompt.to_dict() for proofread_prompt in proofread_prompts]), 200
+
+
+@admin.route('/proofread-prompts', methods=['POST'])
+@jwt_required()
+@require_admin
+def add_proofread_prompt():
+    data = request.json
+    version = data.get('version')
+    prompt = data.get('prompt')
+
+    if not version or not prompt:
+        return jsonify({"error": "Version and prompt are required"}), 400
+
+    new_prompt = ProofreadPrompt(version=version, prompt=prompt)
+    db.session.add(new_prompt)
+    try:
+        db.session.commit()
+        return jsonify({"message": "Proofread prompt created successfully"}), 201
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+@admin.route('/settings/active-proofread-prompt', methods=['GET'])
+@jwt_required()
+@require_admin
+def get_active_proofread_prompt():
+    setting = SystemSetting.query.filter_by(
+        setting_key='active_proofread_prompt_id').first()
+    if not setting:
+        return jsonify({"error": "No active proofread prompt set"}), 404
+
+    prompt = ProofreadPrompt.query.get(setting.setting_value)
+    if not prompt:
+        return jsonify({"error": "Active proofread prompt not found"}), 404
+
+    return jsonify(prompt.to_dict()), 200
+
+
+@admin.route('/settings/active-proofread-prompt', methods=['POST'])
+@jwt_required()
+@require_admin
+def set_active_proofread_prompt():
+    data = request.json
+    proofread_prompt_id = data.get('proofread_prompt_id')
+
+    if not proofread_prompt_id:
+        return jsonify({"error": "Proofread prompt ID is required"}), 400
+
+    prompt = ProofreadPrompt.query.get(proofread_prompt_id)
+    if not prompt:
+        return jsonify({"error": "Proofread prompt not found"}), 404
+
+    setting = SystemSetting.query.filter_by(
+        setting_key='active_proofread_prompt_id').first()
+    if setting:
+        setting.setting_value = str(proofread_prompt_id)
+    else:
+        setting = SystemSetting(
+            setting_key='active_proofread_prompt_id',
+            setting_value=str(proofread_prompt_id),
+            description='ID of the currently active proofread prompt'
+        )
+        db.session.add(setting)
+
+    try:
+        db.session.commit()
+        return jsonify({"message": "Active proofread prompt updated successfully"}), 200
     except SQLAlchemyError as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
@@ -209,7 +289,7 @@ def set_active_system_prompt():
 @jwt_required()
 @require_admin
 def get_settings():
-    settings = SystemSettings.query.all()
+    settings = SystemSetting.query.all()
     return jsonify([setting.to_dict() for setting in settings]), 200
 
 
@@ -225,10 +305,10 @@ def add_setting():
     if not key or not value:
         return jsonify({"error": "Setting key and value are required"}), 400
 
-    if SystemSettings.query.filter_by(setting_key=key).first():
+    if SystemSetting.query.filter_by(setting_key=key).first():
         return jsonify({"error": "Setting key already exists"}), 400
 
-    new_setting = SystemSettings(
+    new_setting = SystemSetting(
         setting_key=key, setting_value=value, description=description)
     db.session.add(new_setting)
     try:
@@ -243,7 +323,7 @@ def add_setting():
 @jwt_required()
 @require_admin
 def update_setting(setting_id):
-    setting = SystemSettings.query.get(setting_id)
+    setting = SystemSetting.query.get(setting_id)
     if not setting:
         return jsonify({"error": "Setting not found"}), 404
 
@@ -263,7 +343,7 @@ def update_setting(setting_id):
 @jwt_required()
 @require_admin
 def delete_setting(setting_id):
-    setting = SystemSettings.query.get(setting_id)
+    setting = SystemSetting.query.get(setting_id)
     if not setting:
         return jsonify({"error": "Setting not found"}), 404
 
