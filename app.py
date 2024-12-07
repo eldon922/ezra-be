@@ -153,11 +153,16 @@ def process_transcription(user, file_path, drive_url):
             os.makedirs(os.path.join(app.config['TXT_FOLDER'], username), exist_ok=True)
             output_path = os.path.join(app.config['TXT_FOLDER'], username, f'{Path(audio_file_path).stem}.txt')
             while(True):
-                if SystemSetting.query.filter_by(setting_key='transcribing_allowed').first().setting_value == 'true':
+                transcribing_allowed_setting = SystemSetting.query.filter_by(
+                    setting_key='transcribing_allowed').first()
+                if transcribing_allowed_setting.setting_value == 'true':
+                    transcribing_allowed_setting.setting_value = 'false'
                     transcription.status = 'transcribing'
                     db.session.commit()
                     # Transcribe only
                     success, txt_path, error = TranscriptionService().transcribe(audio_file_path, output_path)
+                    transcribing_allowed_setting.setting_value = 'true'
+                    db.session.commit()
                     if not success:
                         raise Exception(f"Transcription failed: {error}")
                     return txt_path

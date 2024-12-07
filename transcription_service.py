@@ -16,21 +16,9 @@ class TranscriptionService:
     def __init__(self):
         self.model = whisper.load_model("turbo")
 
-        self.transcribing_allowed_setting = SystemSetting.query.filter_by(
-            setting_key='transcribing_allowed').first()
-        if not self.transcribing_allowed_setting:
-            new_setting = SystemSetting(
-                setting_key='transcribing_allowed', setting_value="true")
-            db.session.add(new_setting)
-            db.session.commit()
-            self.transcribing_allowed_setting = new_setting
-
     @measure_execution_time
     def transcribe(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
-
-        self.transcribing_allowed_setting.setting_value = "false"
-        db.session.commit()
         try:
             active_transcribe_prompt_setting = SystemSetting.query.filter_by(
                 setting_key='active_transcribe_prompt_id').first()
@@ -90,6 +78,3 @@ class TranscriptionService:
         except Exception as e:
             logging.error(f"An error occurred: {e}")
             return False, None, str(e)
-        finally:
-            self.transcribing_allowed_setting.setting_value = "true"
-            db.session.commit()

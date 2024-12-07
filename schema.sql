@@ -145,3 +145,7 @@ Begin your edited transcript immediately after these instructions, without any p
 -- Insert initial system settings
 INSERT INTO system_settings (setting_key, setting_value, description)
 VALUES ('active_proofread_prompt_id', '1', 'The ID of the currently active proofread prompt');
+
+-- Insert initial system settings
+INSERT INTO system_settings (setting_key, setting_value, description)
+VALUES ('transcribing_allowed', 'true', 'Whether transcribing is currently allowed or not');
