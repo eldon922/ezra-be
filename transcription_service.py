@@ -1,35 +1,34 @@
 import logging
 import os
+
+import whisper
 from database import db
 from typing import Optional
-import anthropic
-import pypandoc
 from models import ProofreadPrompt, SystemSetting
-from asr_model import ASRModel
 from pydub import AudioSegment
 import tempfile
 import time
 
+from utils import measure_execution_time
+
 
 class TranscriptionService:
     def __init__(self):
-        self.anthropic_api_key = os.environ.get('ANTHROPIC_API_KEY')
+        self.model = whisper.load_model("turbo")
 
-        self.transcriber = ASRModel()
-
-        # Initialize Anthropic
-        self.claude = anthropic.Anthropic(api_key=self.anthropic_api_key)
-
-        self.transcribing_allowed_setting = SystemSetting.query.filter_by(setting_key='transcribing_allowed').first()
+        self.transcribing_allowed_setting = SystemSetting.query.filter_by(
+            setting_key='transcribing_allowed').first()
         if not self.transcribing_allowed_setting:
-            new_setting = SystemSetting(setting_key='transcribing_allowed', setting_value="true")
+            new_setting = SystemSetting(
+                setting_key='transcribing_allowed', setting_value="true")
             db.session.add(new_setting)
             db.session.commit()
             self.transcribing_allowed_setting = new_setting
 
+    @measure_execution_time
     def transcribe(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
-        
+
         self.transcribing_allowed_setting.setting_value = "false"
         db.session.commit()
         try:
@@ -60,7 +59,7 @@ class TranscriptionService:
                     segment.export(temp_file_path, format="wav")
 
                 try:
-                    transcript = self.transcriber.inference(
+                    transcript = self.model.transcribe(
                         temp_file_path, 'id', transcribe_prompt.prompt)
                     transcripts.append(transcript['text'])
                 finally:
@@ -94,74 +93,3 @@ class TranscriptionService:
         finally:
             self.transcribing_allowed_setting.setting_value = "true"
             db.session.commit()
-
-    def proofread(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
-        """Returns (success, output_path, error_message)"""
-        try:
-            with open(file_path, "r", encoding='utf-8') as f:
-                content = f.read()
-
-            # Split content into parts with maximum 500 words each
-            words = content.split()
-            parts = []
-            current_part = []
-            word_count = 0
-
-            for word in words:
-                current_part.append(word)
-                word_count += 1
-
-                if word_count >= 500 and word.endswith('.'):
-                    parts.append(' '.join(current_part))
-                    current_part = []
-                    word_count = 0
-
-            if current_part:
-                parts.append(' '.join(current_part))
-
-            setting = SystemSetting.query.filter_by(
-                setting_key='active_proofread_prompt_id').first()
-            if not setting:
-                raise ValueError("No active proofread prompt set")
-
-            proofread_prompt = ProofreadPrompt.query.get(setting.setting_value)
-            if not proofread_prompt:
-                raise ValueError("Active proofread prompt not found")
-
-            # Process all parts
-            processed_parts = []
-            for part in parts:
-                response = self.claude.messages.create(
-                    model="claude-3-5-sonnet-20241022",
-                    max_tokens=8192,
-                    temperature=0,
-                    system=proofread_prompt.prompt,
-                    messages=[{"role": "user", "content": part}]
-                )
-                processed_parts.append(response.content[0].text)
-
-            # Combine all processed parts
-            combined_output = " ".join(processed_parts)
-
-            with open(output_path, 'w', encoding='utf-8') as file:
-                file.write(combined_output)
-            return True, output_path, None
-
-        except Exception as e:
-            logging.error(f"An error occurred: {e}")
-            return False, None, str(e)
-
-    def convert_to_docx(self, input_file: str, output_file: str, reference_doc: str) -> tuple[bool, str, Optional[str]]:
-        """Returns (success, output_path, error_message)"""
-        try:
-            pypandoc.convert_file(
-                input_file,
-                'docx',
-                outputfile=output_file,
-                extra_args=['--reference-doc=' + reference_doc]
-            )
-            return True, output_file, None
-
-        except Exception as e:
-            logging.error(f"An error occurred: {e}")
-            return False, None, str(e)

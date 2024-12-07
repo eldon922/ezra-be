@@ -13,6 +13,8 @@ from admin_routes import admin
 from models import SystemSetting, User, Transcription, ErrorLog
 from dotenv import load_dotenv
 from database import db
+from pandoc_service import PandocService
+from proofreading_service import ProofreadingService
 from transcription_service import TranscriptionService
 import gdown
 load_dotenv()
@@ -147,7 +149,6 @@ def process_transcription(user, file_path, drive_url):
         db.session.add(transcription)
         db.session.commit()
         
-        transcription_service = TranscriptionService()
         def transcribe_audio(audio_file_path, username, transcription):
             os.makedirs(os.path.join(app.config['TXT_FOLDER'], username), exist_ok=True)
             output_path = os.path.join(app.config['TXT_FOLDER'], username, f'{Path(audio_file_path).stem}.txt')
@@ -156,7 +157,7 @@ def process_transcription(user, file_path, drive_url):
                     transcription.status = 'transcribing'
                     db.session.commit()
                     # Transcribe only
-                    success, txt_path, error = transcription_service.transcribe(audio_file_path, output_path)
+                    success, txt_path, error = TranscriptionService().transcribe(audio_file_path, output_path)
                     if not success:
                         raise Exception(f"Transcription failed: {error}")
                     return txt_path
@@ -168,7 +169,7 @@ def process_transcription(user, file_path, drive_url):
             os.makedirs(os.path.join(app.config['MD_FOLDER'], username), exist_ok=True)
             output_path = os.path.join(app.config['MD_FOLDER'], username, f'{Path(txt_path).stem}.md')
             # Proofread the transcribed text
-            success, md_path, error = transcription_service.proofread(txt_path, output_path)
+            success, md_path, error = ProofreadingService().proofread(txt_path, output_path)
             if not success:
                 raise Exception(f"Proofreading failed: {error}")
             
@@ -178,7 +179,7 @@ def process_transcription(user, file_path, drive_url):
             os.makedirs(os.path.join(app.config['WORD_FOLDER'], username), exist_ok=True)
             output_file = os.path.join(app.config['WORD_FOLDER'], username, f'{Path(md_path).stem}.docx')
             reference_doc = 'reference_pandoc.docx'
-            success, docx_path, error = transcription_service.convert_to_docx(md_path, output_file, reference_doc)
+            success, docx_path, error = PandocService().convert_to_docx(md_path, output_file, reference_doc)
             if not success:
                 raise Exception(f"DOCX conversion failed: {error}")
             
