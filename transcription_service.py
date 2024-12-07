@@ -48,7 +48,7 @@ class TranscriptionService:
 
                 try:
                     transcript = self.model.transcribe(
-                        temp_file_path, 'id', transcribe_prompt.prompt)
+                        temp_file_path, language='id', initial_prompt=transcribe_prompt.prompt)
                     transcripts.append(transcript['text'])
                 finally:
                     # Close the file handle explicitly
