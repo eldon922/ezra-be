@@ -24,3 +24,4 @@ ffmpeg
 ffmpeg-python
 pydub
 openai-whisper
+httpx==0.27.2
