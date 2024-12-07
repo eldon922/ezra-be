@@ -152,9 +152,10 @@ def process_transcription(user, file_path, drive_url):
         def transcribe_audio(audio_file_path, username, transcription):
             os.makedirs(os.path.join(app.config['TXT_FOLDER'], username), exist_ok=True)
             output_path = os.path.join(app.config['TXT_FOLDER'], username, f'{Path(audio_file_path).stem}.txt')
+            transcribing_allowed_setting = SystemSetting.query.filter_by(
+                setting_key='transcribing_allowed').first()
             while(True):
-                transcribing_allowed_setting = SystemSetting.query.filter_by(
-                    setting_key='transcribing_allowed').first()
+                db.session.refresh(transcribing_allowed_setting)
                 if transcribing_allowed_setting.setting_value == 'true':
                     transcribing_allowed_setting.setting_value = 'false'
                     transcription.status = 'transcribing'
