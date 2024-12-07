@@ -1,6 +1,6 @@
-from functools import cache
 import logging
 import os
+from database import db
 from typing import Optional
 import anthropic
 import pypandoc
@@ -11,7 +11,7 @@ import tempfile
 import time
 
 
-class _TranscriptionService:
+class TranscriptionService:
     def __init__(self):
         self.anthropic_api_key = os.environ.get('ANTHROPIC_API_KEY')
 
@@ -20,17 +20,26 @@ class _TranscriptionService:
         # Initialize Anthropic
         self.claude = anthropic.Anthropic(api_key=self.anthropic_api_key)
 
-        self.isTranscribing = False
+        self.transcribing_allowed_setting = SystemSetting.query.filter_by(setting_key='transcribing_allowed').first()
+        if not self.transcribing_allowed_setting:
+            new_setting = SystemSetting(setting_key='transcribing_allowed', setting_value="true")
+            db.session.add(new_setting)
+            db.session.commit()
+            self.transcribing_allowed_setting = new_setting
 
     def transcribe(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
-        self.isTranscribing = True
+        
+        self.transcribing_allowed_setting.setting_value = "false"
+        db.session.commit()
         try:
-            setting = SystemSetting.query.filter_by(setting_key='active_transcribe_prompt_id').first()
-            if not setting:
+            active_transcribe_prompt_setting = SystemSetting.query.filter_by(
+                setting_key='active_transcribe_prompt_id').first()
+            if not active_transcribe_prompt_setting:
                 raise ValueError("No active transcribe prompt set")
 
-            transcribe_prompt = ProofreadPrompt.query.get(setting.setting_value)
+            transcribe_prompt = ProofreadPrompt.query.get(
+                active_transcribe_prompt_setting.setting_value)
             if not transcribe_prompt:
                 raise ValueError("Active transcribe prompt not found")
             # Load the audio file
@@ -40,7 +49,8 @@ class _TranscriptionService:
             segment_length = 600000
 
             # Split the audio into 10-minute segments
-            segments = [audio[i:i+segment_length] for i in range(0, len(audio), segment_length)]
+            segments = [audio[i:i+segment_length]
+                        for i in range(0, len(audio), segment_length)]
 
             # Transcribe each segment
             transcripts = []
@@ -50,7 +60,8 @@ class _TranscriptionService:
                     segment.export(temp_file_path, format="wav")
 
                 try:
-                    transcript = self.transcriber.inference(temp_file_path, 'id', transcribe_prompt.prompt)
+                    transcript = self.transcriber.inference(
+                        temp_file_path, 'id', transcribe_prompt.prompt)
                     transcripts.append(transcript['text'])
                 finally:
                     # Close the file handle explicitly
@@ -65,7 +76,8 @@ class _TranscriptionService:
                             os.unlink(temp_file_path)
                             break
                         except PermissionError:
-                            time.sleep(0.5)  # Wait half a second before retrying
+                            # Wait half a second before retrying
+                            time.sleep(0.5)
 
             # Combine all transcripts
             full_transcript = " ".join(transcripts)
@@ -80,8 +92,8 @@ class _TranscriptionService:
             logging.error(f"An error occurred: {e}")
             return False, None, str(e)
         finally:
-            self.isTranscribing = False
-
+            self.transcribing_allowed_setting.setting_value = "true"
+            db.session.commit()
 
     def proofread(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
@@ -107,14 +119,15 @@ class _TranscriptionService:
             if current_part:
                 parts.append(' '.join(current_part))
 
-            setting = SystemSetting.query.filter_by(setting_key='active_proofread_prompt_id').first()
+            setting = SystemSetting.query.filter_by(
+                setting_key='active_proofread_prompt_id').first()
             if not setting:
                 raise ValueError("No active proofread prompt set")
 
             proofread_prompt = ProofreadPrompt.query.get(setting.setting_value)
             if not proofread_prompt:
                 raise ValueError("Active proofread prompt not found")
-            
+
             # Process all parts
             processed_parts = []
             for part in parts:
@@ -152,7 +165,3 @@ class _TranscriptionService:
         except Exception as e:
             logging.error(f"An error occurred: {e}")
             return False, None, str(e)
-
-@cache
-def get_transcription_service() -> _TranscriptionService:
-    return _TranscriptionService()

@@ -10,10 +10,10 @@ from flask_jwt_extended import JWTManager, jwt_required, create_access_token, ge
 from werkzeug.security import check_password_hash
 import os
 from admin_routes import admin
-from models import User, Transcription, ErrorLog
+from models import SystemSetting, User, Transcription, ErrorLog
 from dotenv import load_dotenv
 from database import db
-from transcription_service import get_transcription_service
+from transcription_service import TranscriptionService
 import gdown
 load_dotenv()
 
@@ -142,10 +142,47 @@ def process_transcription(user, file_path, drive_url):
             user_id=user.id,
             audio_file_path=file_path,
             google_drive_url=drive_url,
-            status='transcribing'
+            status='waiting'
         )
         db.session.add(transcription)
         db.session.commit()
+        
+        transcription_service = TranscriptionService()
+        def transcribe_audio(audio_file_path, username, transcription):
+            os.makedirs(os.path.join(app.config['TXT_FOLDER'], username), exist_ok=True)
+            output_path = os.path.join(app.config['TXT_FOLDER'], username, f'{Path(audio_file_path).stem}.txt')
+            while(True):
+                if SystemSetting.query.filter_by(setting_key='transcribing_allowed').first().setting_value == 'true':
+                    transcription.status = 'transcribing'
+                    db.session.commit()
+                    # Transcribe only
+                    success, txt_path, error = transcription_service.transcribe(audio_file_path, output_path)
+                    if not success:
+                        raise Exception(f"Transcription failed: {error}")
+                    return txt_path
+                else:
+                    # Wait for 5 seconds before checking again
+                    time.sleep(5)
+
+        def proofread_text(txt_path, username):
+            os.makedirs(os.path.join(app.config['MD_FOLDER'], username), exist_ok=True)
+            output_path = os.path.join(app.config['MD_FOLDER'], username, f'{Path(txt_path).stem}.md')
+            # Proofread the transcribed text
+            success, md_path, error = transcription_service.proofread(txt_path, output_path)
+            if not success:
+                raise Exception(f"Proofreading failed: {error}")
+            
+            return md_path
+
+        def convert_md_to_word(md_path, username):
+            os.makedirs(os.path.join(app.config['WORD_FOLDER'], username), exist_ok=True)
+            output_file = os.path.join(app.config['WORD_FOLDER'], username, f'{Path(md_path).stem}.docx')
+            reference_doc = 'reference_pandoc.docx'
+            success, docx_path, error = transcription_service.convert_to_docx(md_path, output_file, reference_doc)
+            if not success:
+                raise Exception(f"DOCX conversion failed: {error}")
+            
+            return docx_path
 
         # First step: Transcribe only
         txt_path = transcribe_audio(file_path, user.username, transcription)
@@ -178,44 +215,6 @@ def process_transcription(user, file_path, drive_url):
         transcription.status = 'error'
         db.session.add(error_log)
         db.session.commit()
-
-def transcribe_audio(audio_file_path, username, transcription):
-    os.makedirs(os.path.join(app.config['TXT_FOLDER'], username), exist_ok=True)
-    output_path = os.path.join(app.config['TXT_FOLDER'], username, f'{Path(audio_file_path).stem}.txt')
-    while(True):
-        if (not get_transcription_service().isTranscribing):
-            transcription.status = 'transcribing'
-            db.session.commit()
-            # Transcribe only
-            success, txt_path, error = get_transcription_service().transcribe(audio_file_path, output_path)
-            if not success:
-                raise Exception(f"Transcription failed: {error}")
-            return txt_path
-        else:
-             # Wait for 5 seconds before checking again
-            transcription.status = 'waiting'
-            db.session.commit()
-            time.sleep(5)
-
-def proofread_text(txt_path, username):
-    os.makedirs(os.path.join(app.config['MD_FOLDER'], username), exist_ok=True)
-    output_path = os.path.join(app.config['MD_FOLDER'], username, f'{Path(txt_path).stem}.md')
-    # Proofread the transcribed text
-    success, md_path, error = get_transcription_service().proofread(txt_path, output_path)
-    if not success:
-        raise Exception(f"Proofreading failed: {error}")
-    
-    return md_path
-
-def convert_md_to_word(md_path, username):
-    os.makedirs(os.path.join(app.config['WORD_FOLDER'], username), exist_ok=True)
-    output_file = os.path.join(app.config['WORD_FOLDER'], username, f'{Path(md_path).stem}.docx')
-    reference_doc = 'reference_pandoc.docx'
-    success, docx_path, error = get_transcription_service().convert_to_docx(md_path, output_file, reference_doc)
-    if not success:
-        raise Exception(f"DOCX conversion failed: {error}")
-    
-    return docx_path
 
 if __name__ == '__main__':
     with app.app_context():
