@@ -46,7 +46,7 @@ class TranscriptionService:
                     segment.export(temp_file_path, format="wav")
 
                 try:
-                    segments, info = self.model.transcribe(temp_file_path, beam_size=5, language="id", initial_prompt=transcribe_prompt.prompt)
+                    segments, info = self.model.transcribe(temp_file_path, beam_size=5, language="id", task="transcribe", initial_prompt=transcribe_prompt.prompt)
                     logging.info("Detected language '%s' with probability %f" % (info.language, info.language_probability))
                     for segment in segments:
                         transcripts.append(segment.text)
