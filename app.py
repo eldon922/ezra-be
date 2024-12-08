@@ -23,11 +23,12 @@ logging.basicConfig(
     filename="app.log",
     level=logging.DEBUG,
     format="%(asctime)s:%(levelname)s:%(message)s"
-    )
+)
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 app = Flask(__name__)
-app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')  # Change this in production!
+app.config['JWT_SECRET_KEY'] = os.environ.get(
+    'JWT_SECRET_KEY')  # Change this in production!
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['AUDIO_FOLDER'] = 'audio'
@@ -41,17 +42,21 @@ db.init_app(app)
 # Register the admin blueprint
 app.register_blueprint(admin, url_prefix='/admin')
 
+
 @app.route('/login', methods=['POST'])
 def login():
     username = request.json.get('username', None)
     password = request.json.get('password', None)
     user = User.query.filter_by(username=username).first()
     if user and check_password_hash(user.password, password):
-        access_token = create_access_token(identity=username, expires_delta=datetime.timedelta(days=1))
+        access_token = create_access_token(
+            identity=username, expires_delta=datetime.timedelta(days=1))
         return jsonify(access_token=access_token, is_admin=user.is_admin), 200
     return jsonify({"msg": "Bad username or password"}), 401
 
+
 executor = Executor(app)
+
 
 @app.route('/process', methods=['POST'])
 @jwt_required()
@@ -59,25 +64,29 @@ def process_audio():
     user = User.query.filter_by(username=get_jwt_identity()).first()
     file_path = None
     drive_url = None
-    os.makedirs(os.path.join(app.config['AUDIO_FOLDER'], user.username), exist_ok=True)
+    os.makedirs(os.path.join(
+        app.config['AUDIO_FOLDER'], user.username), exist_ok=True)
 
     if 'file' in request.files:
         audio_file = request.files['file']
         audio_data = audio_file.read()
-        file_path = os.path.join(app.config['AUDIO_FOLDER'], user.username, audio_file.filename)
+        file_path = os.path.join(
+            app.config['AUDIO_FOLDER'], user.username, audio_file.filename)
         with open(file_path, 'wb') as f:
             f.write(audio_data)
     elif 'drive_link' in request.form:
         drive_url = request.form['drive_link']
-        folder_path = os.path.join(app.config['AUDIO_FOLDER'], user.username, "")
+        folder_path = os.path.join(
+            app.config['AUDIO_FOLDER'], user.username, "")
         try:
             file_path = gdown.download(drive_url, folder_path, fuzzy=True)
             if file_path is None:
-                raise Exception("Download failed. Please check if the Google Drive link is valid and publicly accessible.")
+                raise Exception(
+                    "Download failed. Please check if the Google Drive link is valid and publicly accessible.")
         except Exception as e:
             return jsonify({"error": f"Invalid Google Drive URL. Please make sure the link is correct and the file is publicly accessible. ({e})"}), 400
         # file_path = drive_url
-    
+
     if not file_path or not os.path.exists(file_path):
         return jsonify({"error": "No audio data provided or download failed"}), 400
 
@@ -91,15 +100,18 @@ def process_audio():
 @jwt_required()
 def get_transcriptions():
     user = User.query.filter_by(username=get_jwt_identity()).first()
-    transcriptions = Transcription.query.filter_by(user_id=user.id).order_by(Transcription.created_at.desc()).all()
+    transcriptions = Transcription.query.filter_by(
+        user_id=user.id).order_by(Transcription.created_at.desc()).all()
     return jsonify([{
         "id": t.id,
         "created_at": t.created_at,
         "updated_at": t.updated_at,
         "status": t.status,
         "word_document_path": t.word_document_path if t.word_document_path else None,
+        "txt_document_path": t.txt_document_path if t.txt_document_path else None,
         "audio_file_name": f'{Path(t.audio_file_path).stem}'
     } for t in transcriptions]), 200
+
 
 @app.route('/download/word/<username>/<filename>', methods=['GET'])
 @jwt_required()
@@ -119,14 +131,14 @@ def download_word_file(username, filename):
 
 #     return send_file(os.path.join(app.config['AUDIO_FOLDER'], user.username, filename), as_attachment=True)
 
-# @app.route('/download/txt/<username>/<filename>', methods=['GET'])
-# @jwt_required()
-# def download_txt_file(username, filename):
-#     user = User.query.filter_by(username=get_jwt_identity()).first()
-#     if (username != user.username):
-#         return jsonify({"error": "Unauthorized access"}), 403
+@app.route('/download/txt/<username>/<filename>', methods=['GET'])
+@jwt_required()
+def download_txt_file(username, filename):
+    user = User.query.filter_by(username=get_jwt_identity()).first()
+    if (username != user.username):
+        return jsonify({"error": "Unauthorized access"}), 403
 
-#     return send_file(os.path.join(app.config['TXT_FOLDER'], user.username, filename), as_attachment=True)
+    return send_file(os.path.join(app.config['TXT_FOLDER'], user.username, filename), as_attachment=True)
 
 # @app.route('/download/md/<username>/<filename>', methods=['GET'])
 # @jwt_required()
@@ -136,6 +148,7 @@ def download_word_file(username, filename):
 #         return jsonify({"error": "Unauthorized access"}), 403
 
 #     return send_file(os.path.join(app.config['MD_FOLDER'], user.username, filename), as_attachment=True)
+
 
 def process_transcription(user, file_path, drive_url):
     try:
@@ -148,20 +161,23 @@ def process_transcription(user, file_path, drive_url):
         )
         db.session.add(transcription)
         db.session.commit()
-        
+
         def transcribe_audio(audio_file_path, username, transcription):
-            os.makedirs(os.path.join(app.config['TXT_FOLDER'], username), exist_ok=True)
-            output_path = os.path.join(app.config['TXT_FOLDER'], username, f'{Path(audio_file_path).stem}.txt')
+            os.makedirs(os.path.join(
+                app.config['TXT_FOLDER'], username), exist_ok=True)
+            output_path = os.path.join(app.config['TXT_FOLDER'], username, f'{
+                                       Path(audio_file_path).stem}.txt')
             transcribing_allowed_setting = SystemSetting.query.filter_by(
                 setting_key='transcribing_allowed').first()
-            while(True):
+            while (True):
                 db.session.refresh(transcribing_allowed_setting)
                 if transcribing_allowed_setting.setting_value == 'true':
                     transcribing_allowed_setting.setting_value = 'false'
                     transcription.status = 'transcribing'
                     db.session.commit()
                     # Transcribe only
-                    success, txt_path, error = TranscriptionService().transcribe(audio_file_path, output_path)
+                    success, txt_path, error = TranscriptionService(
+                    ).transcribe(audio_file_path, output_path)
                     transcribing_allowed_setting.setting_value = 'true'
                     db.session.commit()
                     if not success:
@@ -172,23 +188,28 @@ def process_transcription(user, file_path, drive_url):
                     time.sleep(5)
 
         def proofread_text(txt_path, username):
-            os.makedirs(os.path.join(app.config['MD_FOLDER'], username), exist_ok=True)
-            output_path = os.path.join(app.config['MD_FOLDER'], username, f'{Path(txt_path).stem}.md')
+            os.makedirs(os.path.join(
+                app.config['MD_FOLDER'], username), exist_ok=True)
+            output_path = os.path.join(app.config['MD_FOLDER'], username, f'{
+                                       Path(txt_path).stem}.md')
             # Proofread the transcribed text
             success, md_path, error = ProofreadingService().proofread(txt_path, output_path)
             if not success:
                 raise Exception(f"Proofreading failed: {error}")
-            
+
             return md_path
 
         def convert_md_to_word(md_path, username):
-            os.makedirs(os.path.join(app.config['WORD_FOLDER'], username), exist_ok=True)
-            output_file = os.path.join(app.config['WORD_FOLDER'], username, f'{Path(md_path).stem}.docx')
+            os.makedirs(os.path.join(
+                app.config['WORD_FOLDER'], username), exist_ok=True)
+            output_file = os.path.join(app.config['WORD_FOLDER'], username, f'{
+                                       Path(md_path).stem}.docx')
             reference_doc = 'reference_pandoc.docx'
-            success, docx_path, error = PandocService().convert_to_docx(md_path, output_file, reference_doc)
+            success, docx_path, error = PandocService().convert_to_docx(
+                md_path, output_file, reference_doc)
             if not success:
                 raise Exception(f"DOCX conversion failed: {error}")
-            
+
             return docx_path
 
         # First step: Transcribe only
@@ -222,6 +243,7 @@ def process_transcription(user, file_path, drive_url):
         transcription.status = 'error'
         db.session.add(error_log)
         db.session.commit()
+
 
 if __name__ == '__main__':
     with app.app_context():
