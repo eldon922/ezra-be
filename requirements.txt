@@ -23,5 +23,5 @@ pypandoc-binary
 ffmpeg
 ffmpeg-python
 pydub
-openai-whisper
+faster-whisper
 httpx==0.27.2

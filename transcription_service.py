@@ -1,8 +1,7 @@
 import logging
 import os
 
-import whisper
-from database import db
+from faster_whisper import WhisperModel
 from typing import Optional
 from models import ProofreadPrompt, SystemSetting
 from pydub import AudioSegment
@@ -14,7 +13,7 @@ from utils import measure_execution_time
 
 class TranscriptionService:
     def __init__(self):
-        self.model = whisper.load_model("turbo")
+        self.model = WhisperModel('medium', device="auto", compute_type="auto")
 
     @measure_execution_time
     def transcribe(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
@@ -47,9 +46,10 @@ class TranscriptionService:
                     segment.export(temp_file_path, format="wav")
 
                 try:
-                    transcript = self.model.transcribe(
-                        temp_file_path, language='id', initial_prompt=transcribe_prompt.prompt)
-                    transcripts.append(transcript['text'])
+                    segments, info = self.model.transcribe(temp_file_path, beam_size=5, language="id")
+                    logging.info("Detected language '%s' with probability %f" % (info.language, info.language_probability))
+                    for segment in segments:
+                        transcripts.append(segment.text)
                 finally:
                     # Close the file handle explicitly
                     temp_file.close()
