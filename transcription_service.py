@@ -13,7 +13,7 @@ from utils import measure_execution_time
 
 class TranscriptionService:
     def __init__(self):
-        self.model = WhisperModel('medium', device="auto", compute_type="auto")
+        self.model = WhisperModel("large-v3", device="auto", compute_type="auto")
 
     @measure_execution_time
     def transcribe(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
@@ -46,7 +46,7 @@ class TranscriptionService:
                     segment.export(temp_file_path, format="wav")
 
                 try:
-                    segments, info = self.model.transcribe(temp_file_path, beam_size=5, language="id")
+                    segments, info = self.model.transcribe(temp_file_path, beam_size=5, language="id", initial_prompt=transcribe_prompt.prompt)
                     logging.info("Detected language '%s' with probability %f" % (info.language, info.language_probability))
                     for segment in segments:
                         transcripts.append(segment.text)
