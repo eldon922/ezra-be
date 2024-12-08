@@ -216,16 +216,16 @@ def process_transcription(user, file_path, drive_url):
         txt_path = transcribe_audio(file_path, user.username, transcription)
         transcription.txt_document_path = txt_path
 
-        transcription.status = 'proofreading'
-        db.session.commit()
-        # Second step: Proofread and generate other formats
-        md_path = proofread_text(txt_path, user.username)
-        transcription.md_document_path = md_path
+        # transcription.status = 'proofreading'
+        # db.session.commit()
+        # # Second step: Proofread and generate other formats
+        # md_path = proofread_text(txt_path, user.username)
+        # transcription.md_document_path = md_path
 
-        transcription.status = 'converting'
-        db.session.commit()
-        word_path = convert_md_to_word(md_path, user.username)
-        transcription.word_document_path = word_path
+        # transcription.status = 'converting'
+        # db.session.commit()
+        # word_path = convert_md_to_word(md_path, user.username)
+        # transcription.word_document_path = word_path
 
         # Final update to transcription record
         transcription.status = 'completed'
