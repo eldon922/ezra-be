@@ -40,16 +40,38 @@ class TranscriptionService:
 
             # Transcribe each segment
             transcripts = []
+            previous_text = ""  # Store the previous segment's text
             for i, segment in enumerate(segments):
                 with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
                     temp_file_path = temp_file.name
                     segment.export(temp_file_path, format="wav")
 
                 try:
-                    segments, info = self.model.transcribe(temp_file_path, beam_size=5, language="id", task="transcribe", initial_prompt=transcribe_prompt.prompt)
+                    # Prepare the initial prompt
+                    if i == 0:
+                        # For the first segment, use the original prompt
+                        initial_prompt = transcribe_prompt.prompt
+                    else:
+                        # For subsequent segments, combine the original prompt with the last 224 tokens
+                        # from the previous transcription
+                        words = previous_text.split()
+                        context = " ".join(words[-224:]) if len(words) > 224 else previous_text
+                        initial_prompt = f"{transcribe_prompt.prompt} {context}"
+
+                    segments, info = self.model.transcribe(
+                        temp_file_path, 
+                        beam_size=5, 
+                        language="id", 
+                        task="transcribe", 
+                        initial_prompt=initial_prompt
+                    )
                     logging.info("Detected language '%s' with probability %f" % (info.language, info.language_probability))
-                    for segment in segments:
-                        transcripts.append(segment.text)
+                    # Combine all segment texts
+                    segment_text = " ".join(segment.text for segment in segments)
+                    transcripts.append(segment_text)
+                    
+                    # Update the previous text for the next iteration
+                    previous_text = segment_text
                 finally:
                     # Close the file handle explicitly
                     temp_file.close()
