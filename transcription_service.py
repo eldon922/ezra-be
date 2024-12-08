@@ -32,7 +32,7 @@ class TranscriptionService:
             audio = AudioSegment.from_file(file_path)
 
             # Calculate the length of each segment (10 minutes = 600000 milliseconds)
-            segment_length = 600000
+            segment_length = 1800000
 
             # Split the audio into 10-minute segments
             segments = [audio[i:i+segment_length]
