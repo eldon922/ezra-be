@@ -13,7 +13,7 @@ from utils import measure_execution_time
 
 class TranscriptionService:
     def __init__(self):
-        self.model = WhisperModel("medium", device="auto", compute_type="auto")
+        self.model = WhisperModel("turbo", device="auto", compute_type="auto")
 
     @measure_execution_time
     def transcribe(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
