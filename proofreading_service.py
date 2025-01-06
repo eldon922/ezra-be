@@ -28,7 +28,7 @@ class ProofreadingService:
                 current_part.append(word)
                 word_count += 1
 
-                if word_count >= 500 and word.endswith('.'):
+                if word_count >= 500:
                     parts.append(' '.join(current_part))
                     current_part = []
                     word_count = 0
