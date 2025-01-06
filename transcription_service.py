@@ -67,7 +67,7 @@ class TranscriptionService:
                     )
                     logging.info("Detected language '%s' with probability %f" % (info.language, info.language_probability))
                     # Combine all segment texts
-                    segment_text = " ".join(segment.text for segment in segments)
+                    segment_text = "".join(segment.text for segment in segments)
                     transcripts.append(segment_text)
                     
                     # Update the previous text for the next iteration
