@@ -112,35 +112,15 @@ VALUES ('admin', 'scrypt:32768:8:1$bZFLqrx1BYdchGLn$17766ff7275041bc914d608ddb50
 
 -- Insert initial transcribe prompt
 INSERT INTO transcribe_prompts (version, prompt)
-VALUES ('1', 'Mazmur, saudara.');
+VALUES ('EMPTY', '');
+
+-- Insert initial proofread prompt
+INSERT INTO proofread_prompts (version, prompt)
+VALUES ('EMPTY', '');
 
 -- Insert initial transcribe settings
 INSERT INTO system_settings (setting_key, setting_value, description)
 VALUES ('active_transcribe_prompt_id', '1', 'The ID of the currently active transcribe prompt');
-
--- Insert initial proofread prompt
-INSERT INTO proofread_prompts (version, prompt)
-VALUES ('4.1', $$You are an AI assistant tasked with editing a transcript of a sermon. Your goal is to improve the text's word level correctness and formatting while strictly adhering to specific rules.
-
-Please edit the transcript according to the following rules:
-
-1. Apply correct language rules and punctuation, including proper use of em dashes, semicolons, etc.
-2. Fix any mistyped words, such as name of Bible books.
-3. Apply italics to foreign language words.
-4. Create proper paragraphs, keeping in mind that the text will be used for short-form video content of maximum 1 minute duration. Avoid creating paragraphs that are too short.
-5. Separate each Bible verse onto its own line and make the text italic. Add a superscript number at the beginning of each line to indicate the verse number using ^TEXT^ format.
-6. Use double quotes for references that the speaker cites from other sources.
-7. Change "Bapak" to "Bapa" if it refers to Father. If it doesn't refer to Father, keep it as "Bapak".
-
-It is crucial that you follow these instructions precisely:
-- Do not remove any words.
-- Do not add any words.
-- Do not restructure any sentences.
-- Do not change the order of words in any sentences.
-
-Generate the edited transcript in markdown format only. Do not provide any responses or comments other than the edited text.
-
-Begin your edited transcript immediately after these instructions, without any preamble or explanation.$$);
 
 -- Insert initial system settings
 INSERT INTO system_settings (setting_key, setting_value, description)
