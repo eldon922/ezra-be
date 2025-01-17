@@ -1,106 +1,96 @@
 import logging
-import os
-
-from faster_whisper import WhisperModel
+import time
 from typing import Optional
 from models import SystemSetting, TranscribePrompt
-from pydub import AudioSegment
-import tempfile
-import time
-
-from utils import measure_execution_time
+import requests
+import os
 
 
 class TranscriptionService:
     def __init__(self):
-        self.model = WhisperModel("turbo", device="auto", compute_type="auto")
+        self.api_key = os.environ.get('TRANSCRIBE_API_KEY')
+        self.url = os.environ.get('TRANSCRIBE_API_URL')
 
-    @measure_execution_time
-    def transcribe(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
+    def transcribe(self, file_path: str, output_path: str, transcription_id: int) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
         try:
-            active_transcribe_prompt_setting = SystemSetting.query.filter_by(
-                setting_key='active_transcribe_prompt_id').first()
-            if not active_transcribe_prompt_setting:
-                raise ValueError("No active transcribe prompt set")
+            self._call_inference_api(file_path, transcription_id)
 
-            transcribe_prompt = TranscribePrompt.query.get(
-                active_transcribe_prompt_setting.setting_value)
-            if not transcribe_prompt:
-                raise ValueError("Active transcribe prompt not found")
-            # Load the audio file
-            audio = AudioSegment.from_file(file_path)
+            transcript_file = self._get_transcription_result(transcription_id)
 
-            # Calculate the length of each segment (10 minutes = 600000 milliseconds)
-            segment_length = 1800000
-
-            # Split the audio into 10-minute segments
-            segments = [audio[i:i+segment_length]
-                        for i in range(0, len(audio), segment_length)]
-
-            # Transcribe each segment
-            transcripts = []
-            previous_text = ""  # Store the previous segment's text
-            for i, segment in enumerate(segments):
-                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
-                    temp_file_path = temp_file.name
-                    segment.export(temp_file_path, format="wav")
-
-                try:
-                    # Prepare the initial prompt
-                    if i == 0:
-                        # For the first segment, use the original prompt
-                        initial_prompt = transcribe_prompt.prompt
-                    else:
-                        # For subsequent segments, combine the original prompt with the last 224 tokens
-                        # from the previous transcription
-                        words = previous_text.split()
-                        context = " ".join(
-                            words[-224:]) if len(words) > 224 else previous_text
-                        initial_prompt = f"{
-                            transcribe_prompt.prompt} {context}"
-
-                    segments, info = self.model.transcribe(
-                        temp_file_path,
-                        beam_size=5,
-                        language="id",
-                        task="transcribe",
-                        initial_prompt=initial_prompt
-                    )
-                    logging.info("Detected language '%s' with probability %f" % (
-                        info.language, info.language_probability))
-                    # Combine all segment texts
-                    segment_text = "".join(
-                        segment.text for segment in segments)
-                    transcripts.append(segment_text)
-
-                    # Update the previous text for the next iteration
-                    previous_text = segment_text
-                finally:
-                    # Close the file handle explicitly
-                    temp_file.close()
-
-                    # Wait a short time to ensure the file is released
-                    time.sleep(0.1)
-
-                    # Attempt to delete the file, with retries
-                    for _ in range(5):  # Try up to 5 times
-                        try:
-                            os.unlink(temp_file_path)
-                            break
-                        except PermissionError:
-                            # Wait half a second before retrying
-                            time.sleep(0.5)
-
-            # Combine all transcripts
-            full_transcript = " ".join(transcripts)
-
-            # Write the combined transcript to the output file
-            with open(output_path, 'w', encoding='utf-8') as file:
-                file.write(full_transcript)
+            with open(output_path, 'wb') as f:
+                f.write(transcript_file)
 
             return True, output_path, None
 
         except Exception as e:
             logging.error(f"An error occurred: {e}")
             return False, None, str(e)
+
+    def _call_inference_api(self, file_path: str, transcription_id: int):
+        active_transcribe_prompt_setting = SystemSetting.query.filter_by(
+            setting_key='active_transcribe_prompt_id').first()
+        if not active_transcribe_prompt_setting:
+            raise ValueError("No active transcribe prompt set")
+
+        transcribe_prompt = TranscribePrompt.query.get(
+            active_transcribe_prompt_setting.setting_value)
+        if not transcribe_prompt:
+            raise ValueError("Active transcribe prompt not found")
+
+        # Prepare the data and files for the POST request
+        data = {
+            'transcription_id': transcription_id,
+            'transcribe_prompt': transcribe_prompt.prompt
+        }
+        files = {
+            'audio': open(file_path, 'rb')
+        }
+
+        # Add the API key to the headers
+        headers = {
+            'x-api-key': self.api_key
+        }
+        inference_url = f"{self.url}/process"
+
+        # Make the POST request to the Flask API
+        response = requests.post(
+            inference_url, data=data, files=files, headers=headers)
+
+        if response.status_code == 200:
+            logging.info(response.json().get(
+                'message', 'Something unexpected happened'))
+        else:
+            logging.error(transcript_result = response.json().get(
+                'error', 'Error in transcription request'))
+            
+    def _get_transcription_result(self, transcription_id):
+        # Construct the full URL
+        fetch_url = f"{self.url}/gettranscriptionresult/{transcription_id}"
+        
+        # Set up headers with API key
+        headers = {
+            "x-api-key": self.api_key
+        }
+        
+        while True:  # Keep checking until complete
+            try:
+                # Wait before checking
+                time.sleep(10)  # Wait 10 seconds between checks
+
+                response = requests.get(fetch_url, headers=headers)
+                
+                if response.status_code == 200:
+                    # Check if it's a "still in progress" message
+                    if response.headers.get('Content-Type') == 'application/json':
+                        result = response.json()
+                        print(f"Status: {result.get('message')}")
+                        continue
+                    else:
+                        # It's a file download - transcription is complete
+                        return response.content
+                else:
+                    return f"Error: {response.status_code} - {response.text}"
+                    
+            except Exception as e:
+                return f"Error occurred: {str(e)}"

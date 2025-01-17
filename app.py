@@ -2,7 +2,6 @@ import datetime
 import logging
 from pathlib import Path
 import sys
-import time
 import traceback
 from flask import Flask, request, jsonify, send_file
 from flask_executor import Executor
@@ -10,7 +9,7 @@ from flask_jwt_extended import JWTManager, jwt_required, create_access_token, ge
 from werkzeug.security import check_password_hash
 import os
 from admin_routes import admin
-from models import SystemSetting, User, Transcription, ErrorLog
+from models import User, Transcription, ErrorLog
 from dotenv import load_dotenv
 from database import db
 from pandoc_service import PandocService
@@ -167,25 +166,17 @@ def process_transcription(user, file_path, drive_url):
                 app.config['TXT_FOLDER'], username), exist_ok=True)
             output_path = os.path.join(app.config['TXT_FOLDER'], username, f'{
                                        Path(audio_file_path).stem}.txt')
-            transcribing_allowed_setting = SystemSetting.query.filter_by(
-                setting_key='transcribing_allowed').first()
-            while (True):
-                db.session.refresh(transcribing_allowed_setting)
-                if transcribing_allowed_setting.setting_value == 'true':
-                    transcribing_allowed_setting.setting_value = 'false'
-                    transcription.status = 'transcribing'
-                    db.session.commit()
-                    # Transcribe only
-                    success, txt_path, error = TranscriptionService(
-                    ).transcribe(audio_file_path, output_path)
-                    transcribing_allowed_setting.setting_value = 'true'
-                    db.session.commit()
-                    if not success:
-                        raise Exception(f"Transcription failed: {error}")
-                    return txt_path
-                else:
-                    # Wait for 5 seconds before checking again
-                    time.sleep(5)
+            
+            transcription.status = 'transcribing'
+            db.session.commit()
+
+            # Transcribe only
+            success, txt_path, error = TranscriptionService(
+            ).transcribe(audio_file_path, output_path, transcription.id)
+            
+            if not success:
+                raise Exception(f"Transcription failed: {error}")
+            return txt_path
 
         def proofread_text(txt_path, username):
             os.makedirs(os.path.join(
