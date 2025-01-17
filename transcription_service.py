@@ -3,7 +3,7 @@ import os
 
 from faster_whisper import WhisperModel
 from typing import Optional
-from models import ProofreadPrompt, SystemSetting
+from models import SystemSetting, TranscribePrompt
 from pydub import AudioSegment
 import tempfile
 import time
@@ -24,7 +24,7 @@ class TranscriptionService:
             if not active_transcribe_prompt_setting:
                 raise ValueError("No active transcribe prompt set")
 
-            transcribe_prompt = ProofreadPrompt.query.get(
+            transcribe_prompt = TranscribePrompt.query.get(
                 active_transcribe_prompt_setting.setting_value)
             if not transcribe_prompt:
                 raise ValueError("Active transcribe prompt not found")
@@ -55,21 +55,25 @@ class TranscriptionService:
                         # For subsequent segments, combine the original prompt with the last 224 tokens
                         # from the previous transcription
                         words = previous_text.split()
-                        context = " ".join(words[-224:]) if len(words) > 224 else previous_text
-                        initial_prompt = f"{transcribe_prompt.prompt} {context}"
+                        context = " ".join(
+                            words[-224:]) if len(words) > 224 else previous_text
+                        initial_prompt = f"{
+                            transcribe_prompt.prompt} {context}"
 
                     segments, info = self.model.transcribe(
-                        temp_file_path, 
-                        beam_size=5, 
-                        language="id", 
-                        task="transcribe", 
+                        temp_file_path,
+                        beam_size=5,
+                        language="id",
+                        task="transcribe",
                         initial_prompt=initial_prompt
                     )
-                    logging.info("Detected language '%s' with probability %f" % (info.language, info.language_probability))
+                    logging.info("Detected language '%s' with probability %f" % (
+                        info.language, info.language_probability))
                     # Combine all segment texts
-                    segment_text = "".join(segment.text for segment in segments)
+                    segment_text = "".join(
+                        segment.text for segment in segments)
                     transcripts.append(segment_text)
-                    
+
                     # Update the previous text for the next iteration
                     previous_text = segment_text
                 finally:
