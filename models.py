@@ -1,5 +1,6 @@
+from uuid import uuid4
+from sqlalchemy import UUID
 from database import db
-from datetime import datetime
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -23,7 +24,7 @@ class User(db.Model):
 class Transcription(db.Model):
     __tablename__ = 'transcriptions'
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     audio_file_path = db.Column(db.String(255))
     google_drive_url = db.Column(db.String(255))

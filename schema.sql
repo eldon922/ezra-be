@@ -1,6 +1,8 @@
 ALTER USER ezra_user WITH PASSWORD '[PASSWORD]';
 
-GRANT ALL ON SCHEMA public TO ezra_user;
+---------------------------------------------------------------------------------------------------
+
+CREATE DATABASE ezra_be OWNER ezra_user;
 
 ---------------------------------------------------------------------------------------------------
 
@@ -13,9 +15,12 @@ CREATE TABLE users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create Transcriptions table
+-- First, ensure the uuid-ossp extension is enabled (if not already done)
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Create Transcriptions table with UUID
 CREATE TABLE transcriptions (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id INTEGER REFERENCES users(id),
     audio_file_path VARCHAR(255),
     google_drive_url VARCHAR(255),
@@ -31,7 +36,7 @@ CREATE TABLE transcriptions (
 CREATE TABLE error_logs (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id),
-    transcription_id INTEGER REFERENCES transcriptions(id),
+    transcription_id UUID REFERENCES transcriptions(id),
     error_message TEXT,
     stack_trace TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -104,11 +109,13 @@ EXECUTE FUNCTION update_modified_column();
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ezra_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ezra_user;
 
+GRANT ALL ON SCHEMA public TO ezra_user;
+
 ---------------------------------------------------------------------------------------------------
 
 -- Insert an initial admin user (change the username and password as needed)
 INSERT INTO users (username, password, is_admin)
-VALUES ('admin', 'scrypt:32768:8:1$bZFLqrx1BYdchGLn$17766ff7275041bc914d608ddb5087862deb396ff507baa7f9318bafd2afea5f905dff6a4d37e1bb57dd8ad6ea6c3dfec6fa293239176059f03ba4691fb2d452', TRUE);
+VALUES ('admin', 'scrypt:32768:8:1$Kp4H6ecI5RX33V91$f52fcf74b6ca0c0ba5c983d2ee0a8d23f5bd76f7963bbab210aeea9d4c973bf57af5ee8f3d78b555d5cd157d5af21d095793a17f3d8b2065511149bde23d957b', TRUE);
 
 -- Insert initial transcribe prompt
 INSERT INTO transcribe_prompts (version, prompt)
