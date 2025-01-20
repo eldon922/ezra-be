@@ -108,7 +108,7 @@ def get_transcriptions():
         "status": t.status,
         "word_document_path": t.word_document_path if t.word_document_path else None,
         "txt_document_path": t.txt_document_path if t.txt_document_path else None,
-        "audio_file_name": f'{Path(t.audio_file_path).stem}'
+        "audio_file_name": f"""{Path(t.audio_file_path).stem}"""
     } for t in transcriptions]), 200
 
 
@@ -164,8 +164,8 @@ def process_transcription(user, file_path, drive_url):
         def transcribe_audio(audio_file_path, username, transcription):
             os.makedirs(os.path.join(
                 app.config['TXT_FOLDER'], username), exist_ok=True)
-            output_path = os.path.join(app.config['TXT_FOLDER'], username, f'{
-                                       Path(audio_file_path).stem}.txt')
+            output_path = os.path.join(app.config['TXT_FOLDER'], username, f"""{
+                                       Path(audio_file_path).stem}.txt""")
             
             transcription.status = 'transcribing'
             db.session.commit()
@@ -181,8 +181,8 @@ def process_transcription(user, file_path, drive_url):
         def proofread_text(txt_path, username):
             os.makedirs(os.path.join(
                 app.config['MD_FOLDER'], username), exist_ok=True)
-            output_path = os.path.join(app.config['MD_FOLDER'], username, f'{
-                                       Path(txt_path).stem}.md')
+            output_path = os.path.join(app.config['MD_FOLDER'], username, f"""{
+                                       Path(txt_path).stem}.md""")
             # Proofread the transcribed text
             success, md_path, error = ProofreadingService().proofread(txt_path, output_path)
             if not success:
@@ -193,8 +193,8 @@ def process_transcription(user, file_path, drive_url):
         def convert_md_to_word(md_path, username):
             os.makedirs(os.path.join(
                 app.config['WORD_FOLDER'], username), exist_ok=True)
-            output_file = os.path.join(app.config['WORD_FOLDER'], username, f'{
-                                       Path(md_path).stem}.docx')
+            output_file = os.path.join(app.config['WORD_FOLDER'], username, f"""{
+                                       Path(md_path).stem}.docx""")
             reference_doc = 'reference_pandoc.docx'
             success, docx_path, error = PandocService().convert_to_docx(
                 md_path, output_file, reference_doc)

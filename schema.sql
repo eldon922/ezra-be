@@ -1,4 +1,7 @@
+CREATE USER ezra_user WITH PASSWORD '[PASSWORD]' CREATEDB;
 ALTER USER ezra_user WITH PASSWORD '[PASSWORD]';
+
+SET ROLE ezra_user;
 
 ---------------------------------------------------------------------------------------------------
 
