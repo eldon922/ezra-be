@@ -30,7 +30,7 @@ CREATE TABLE transcriptions (
     txt_document_path VARCHAR(255),
     md_document_path VARCHAR(255),
     word_document_path VARCHAR(255),
-    status VARCHAR(20) DEFAULT 'pending',
+    status VARCHAR(30) DEFAULT 'pending',
     transcribe_prompt TEXT,
     proofread_prompt TEXT,
     inference_duration INTEGER,

@@ -31,7 +31,7 @@ class Transcription(db.Model):
     txt_document_path = db.Column(db.String(255))
     md_document_path = db.Column(db.String(255))
     word_document_path = db.Column(db.String(255))
-    status = db.Column(db.String(20), default='pending')
+    status = db.Column(db.String(30), default='pending')
     transcribe_prompt = db.Column(db.Text)
     proofread_prompt = db.Column(db.Text)
     inference_duration = db.Column(db.Integer)
@@ -62,7 +62,7 @@ class ErrorLog(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    transcription_id = db.Column(db.Integer, db.ForeignKey('transcriptions.id'))
+    transcription_id = db.Column(UUID(as_uuid=True), db.ForeignKey('transcriptions.id'))
     error_message = db.Column(db.Text, nullable=False)
     stack_trace = db.Column(db.Text)
     inference = db.Column(db.Boolean, default=False)
