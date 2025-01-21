@@ -149,7 +149,7 @@ def download_txt_file(username, filename):
 #     return send_file(os.path.join(app.config['MD_FOLDER'], user.username, filename), as_attachment=True)
 
 
-def process_transcription(user, file_path, drive_url):
+def process_transcription(user: User, file_path: str, drive_url: str):
     try:
         # Create transcription record
         transcription = Transcription(
@@ -172,19 +172,19 @@ def process_transcription(user, file_path, drive_url):
 
             # Transcribe only
             success, txt_path, error = TranscriptionService(
-            ).transcribe(audio_file_path, output_path, transcription.id)
+            ).transcribe(audio_file_path, output_path, transcription)
             
             if not success:
                 raise Exception(f"Transcription failed: {error}")
             return txt_path
 
-        def proofread_text(txt_path, username):
+        def proofread_text(transcription: Transcription):
             os.makedirs(os.path.join(
-                app.config['MD_FOLDER'], username), exist_ok=True)
-            output_path = os.path.join(app.config['MD_FOLDER'], username, f"""{
+                app.config['MD_FOLDER'], transcription.user.username), exist_ok=True)
+            output_path = os.path.join(app.config['MD_FOLDER'], transcription.user.username, f"""{
                                        Path(txt_path).stem}.md""")
             # Proofread the transcribed text
-            success, md_path, error = ProofreadingService().proofread(txt_path, output_path)
+            success, md_path, error = ProofreadingService().proofread(transcription, output_path)
             if not success:
                 raise Exception(f"Proofreading failed: {error}")
 
@@ -210,7 +210,7 @@ def process_transcription(user, file_path, drive_url):
         transcription.status = 'proofreading'
         db.session.commit()
         # Second step: Proofread and generate other formats
-        md_path = proofread_text(txt_path, user.username)
+        md_path = proofread_text(transcription)
         transcription.md_document_path = md_path
 
         transcription.status = 'converting'

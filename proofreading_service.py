@@ -2,7 +2,8 @@ import logging
 import os
 from typing import Optional
 import anthropic
-from models import ProofreadPrompt, SystemSetting
+from models import ProofreadPrompt, SystemSetting, Transcription
+from database import db
 
 
 class ProofreadingService:
@@ -12,10 +13,10 @@ class ProofreadingService:
         # Initialize Anthropic
         self.claude = anthropic.Anthropic(api_key=self.anthropic_api_key)
 
-    def proofread(self, file_path: str, output_path: str) -> tuple[bool, str, Optional[str]]:
+    def proofread(self, transcription: Transcription, output_path: str) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
         try:
-            with open(file_path, "r", encoding='utf-8') as f:
+            with open(transcription.txt_document_path, "r", encoding='utf-8') as f:
                 content = f.read()
 
             # Split content into parts with maximum 500 words each
@@ -44,6 +45,9 @@ class ProofreadingService:
             proofread_prompt = ProofreadPrompt.query.get(setting.setting_value)
             if not proofread_prompt:
                 raise ValueError("Active proofread prompt not found")
+            
+            transcription.proofread_prompt = proofread_prompt.prompt
+            db.session.commit()
 
             # Process all parts
             processed_parts = []

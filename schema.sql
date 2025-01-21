@@ -31,6 +31,9 @@ CREATE TABLE transcriptions (
     md_document_path VARCHAR(255),
     word_document_path VARCHAR(255),
     status VARCHAR(20) DEFAULT 'pending',
+    transcribe_prompt TEXT,
+    proofread_prompt TEXT,
+    inference_duration INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -42,6 +45,7 @@ CREATE TABLE error_logs (
     transcription_id UUID REFERENCES transcriptions(id),
     error_message TEXT,
     stack_trace TEXT,
+    inference BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

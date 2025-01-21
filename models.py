@@ -32,6 +32,9 @@ class Transcription(db.Model):
     md_document_path = db.Column(db.String(255))
     word_document_path = db.Column(db.String(255))
     status = db.Column(db.String(20), default='pending')
+    transcribe_prompt = db.Column(db.Text)
+    proofread_prompt = db.Column(db.Text)
+    inference_duration = db.Column(db.Integer)
     created_at = db.Column(db.DateTime(timezone=True), server_default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime(timezone=True), server_default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
     user = db.relationship('User', back_populates='transcriptions')
@@ -46,6 +49,9 @@ class Transcription(db.Model):
             'md_document_path': self.md_document_path,
             'word_document_path': self.word_document_path,
             'status': self.status,
+            'transcribe_prompt': self.transcribe_prompt,
+            'proofread_prompt': self.proofread_prompt,
+            'inference_duration': self.inference_duration,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
             'username': self.user.username
@@ -59,6 +65,7 @@ class ErrorLog(db.Model):
     transcription_id = db.Column(db.Integer, db.ForeignKey('transcriptions.id'))
     error_message = db.Column(db.Text, nullable=False)
     stack_trace = db.Column(db.Text)
+    inference = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime(timezone=True), server_default=db.func.current_timestamp())
 
     def to_dict(self):
@@ -66,9 +73,10 @@ class ErrorLog(db.Model):
             'id': self.id,
             'user_id': self.user_id,
             'transcription_id': self.transcription_id,
-            'created_at': self.created_at.isoformat(),
             'error_message': self.error_message,
-            'stack_trace': self.stack_trace
+            'stack_trace': self.stack_trace,
+            'inference': self.inference,
+            'created_at': self.created_at.isoformat()
         }
     
 class TranscribePrompt(db.Model):

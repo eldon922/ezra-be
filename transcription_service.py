@@ -1,9 +1,10 @@
 import logging
 import time
 from typing import Optional
-from models import SystemSetting, TranscribePrompt
+from models import SystemSetting, TranscribePrompt, Transcription
 import requests
 import os
+from database import db
 
 
 class TranscriptionService:
@@ -11,12 +12,12 @@ class TranscriptionService:
         self.api_key = os.environ.get('TRANSCRIBE_API_KEY')
         self.url = os.environ.get('TRANSCRIBE_API_URL')
 
-    def transcribe(self, file_path: str, output_path: str, transcription_id: int) -> tuple[bool, str, Optional[str]]:
+    def transcribe(self, file_path: str, output_path: str, transcription: Transcription) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
         try:
-            self._call_inference_api(file_path, transcription_id)
+            self._call_inference_api(file_path, transcription)
 
-            transcript_file = self._get_transcription_result(transcription_id)
+            transcript_file = self._get_transcription_result(transcription)
 
             with open(output_path, 'wb') as f:
                 f.write(transcript_file)
@@ -27,7 +28,7 @@ class TranscriptionService:
             logging.error(f"An error occurred: {e}")
             return False, None, str(e)
 
-    def _call_inference_api(self, file_path: str, transcription_id: int):
+    def _call_inference_api(self, file_path: str, transcription: Transcription):
         active_transcribe_prompt_setting = SystemSetting.query.filter_by(
             setting_key='active_transcribe_prompt_id').first()
         if not active_transcribe_prompt_setting:
@@ -37,11 +38,13 @@ class TranscriptionService:
             active_transcribe_prompt_setting.setting_value)
         if not transcribe_prompt:
             raise ValueError("Active transcribe prompt not found")
+        
+        transcription.transcribe_prompt = transcribe_prompt.prompt
+        db.session.commit()
 
         # Prepare the data and files for the POST request
         data = {
-            'transcription_id': transcription_id,
-            'transcribe_prompt': transcribe_prompt.prompt
+            'transcription_id': transcription.id
         }
         files = {
             'audio': open(file_path, 'rb')
@@ -64,9 +67,9 @@ class TranscriptionService:
             logging.error(transcript_result = response.json().get(
                 'error', 'Error in transcription request'))
             
-    def _get_transcription_result(self, transcription_id):
+    def _get_transcription_result(self, transcription: Transcription):
         # Construct the full URL
-        fetch_url = f"{self.url}/gettranscriptionresult/{transcription_id}"
+        fetch_url = f"{self.url}/gettranscriptionresult/{transcription.id}"
         
         # Set up headers with API key
         headers = {
