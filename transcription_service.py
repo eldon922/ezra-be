@@ -30,7 +30,7 @@ class TranscriptionService:
             return True, output_path, None
 
         except Exception as e:
-            logging.error(f"An error occurred: {e}")
+            logging.error(f"""An error occurred: {e}""")
             return False, None, str(e)
 
     def _call_inference_api(self, transcription: Transcription):
@@ -53,14 +53,14 @@ class TranscriptionService:
             # Make the POST request to the Flask API
             try:
                 response = requests.post(
-                    f"{self.transcribe_api_url}/process",
+                    f"""{self.transcribe_api_url}/process""",
                     data={'transcription_id': transcription.id},
                     files={'audio': open(transcription.audio_file_path, 'rb')},
                     headers={'x-api-key': self.transcribe_api_key}
                 )
             except Exception as e:
-                logging.warning(f"Error occurred: {
-                                str(e)}. Retrying in 60 seconds...")
+                logging.warning(f"""Error occurred: {
+                                str(e)}. Retrying in 60 seconds...""")
                 time.sleep(60)
                 continue
 
@@ -74,19 +74,19 @@ class TranscriptionService:
                 break
             elif response.status_code == 400:
                 # If there's an error with the request, raise it
-                raise ValueError(f"Inference API Error: {
-                                 response_data.get('error')}")
+                raise ValueError(f"""Inference API Error: {
+                                 response_data.get('error')}""")
             else:
                 # For other status codes, wait and retry
-                logging.warning(f"Received status code {
-                                response.status_code}. Retrying in 60 seconds...")
+                logging.warning(f"""Received status code {
+                                response.status_code}. Retrying in 60 seconds...""")
                 time.sleep(60)
                 continue
 
     def _start_vm(self):
         try:
             # Prepare request to TensorDock API
-            url = f"{self.tensordock_api_url}/start/single"
+            url = f"""{self.tensordock_api_url}/start/single"""
             payload = {
                 'api_key': self.tensordock_api_key,
                 'api_token': self.tensordock_api_token,
@@ -111,13 +111,13 @@ class TranscriptionService:
                     return
                 else:
                     logging.info(
-                        f"Failed to start VM. Retrying in 60 seconds...")
+                        f"""Failed to start VM. Retrying in 60 seconds...""")
                     time.sleep(60)
                     continue
 
         except requests.exceptions.RequestException as e:
             logging.error(
-                f"Failed to communicate with TensorDock API during starting VM. HTTP 500 ({str(e)})")
+                f"""Failed to communicate with TensorDock API during starting VM. HTTP 500 ({str(e)})""")
 
     def _stop_vm(self):
         try:
@@ -128,11 +128,11 @@ class TranscriptionService:
             ).count()
             if running_transcriptions > 0:
                 logging.info(
-                    f"Found {running_transcriptions} running transcriptions. Keeping VM running.")
+                    f"""Found {running_transcriptions} running transcriptions. Keeping VM running.""")
                 return
 
             # Prepare request to TensorDock API
-            url = f"{self.tensordock_api_url}/stop/single"
+            url = f"""{self.tensordock_api_url}/stop/single"""
             payload = {
                 'api_key': self.tensordock_api_key,
                 'api_token': self.tensordock_api_token,
@@ -156,17 +156,17 @@ class TranscriptionService:
                     return
                 else:
                     logging.info(
-                        f"Failed to stop VM. Retrying in 60 seconds...")
+                        f"""Failed to stop VM. Retrying in 60 seconds...""")
                     time.sleep(60)
                     continue
 
         except requests.exceptions.RequestException as e:
             logging.error(
-                f"Failed to communicate with TensorDock API during stopping VM. HTTP 500 ({str(e)})")
+                f"""Failed to communicate with TensorDock API during stopping VM. HTTP 500 ({str(e)})""")
 
     def _get_transcription_result(self, transcription_id: str):
-        fetch_url = f"{
-            self.transcribe_api_url}/gettranscriptionresult/{transcription_id}"
+        fetch_url = f"""{
+            self.transcribe_api_url}/gettranscriptionresult/{transcription_id}"""
 
         while True:
             try:
@@ -179,14 +179,14 @@ class TranscriptionService:
                     # Check if it's a "still in progress" message
                     if response.headers.get('Content-Type') == 'application/json':
                         result = response.json()
-                        print(f"Status: {result.get('message')}")
+                        print(f"""Status: {result.get('message')}""")
                         continue
                     else:
                         self._stop_vm()
                         # It's a file download - transcription is complete
                         return response.content
                 else:
-                    return f"Error: {response.status_code} - {response.text}"
+                    return f"""Error: {response.status_code} - {response.text}"""
 
             except Exception as e:
-                return f"Error occurred: {str(e)}"
+                return f"""Error occurred: {str(e)}"""

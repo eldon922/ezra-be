@@ -94,7 +94,7 @@ def process_audio():
         except Exception as e:
             transcription.status = 'error'
             db.session.commit()
-            return jsonify({"error": f"Invalid Google Drive URL. Please make sure the link is correct and the file is publicly accessible. ({e})"}), 400
+            return jsonify({"error": f"""Invalid Google Drive URL. Please make sure the link is correct and the file is publicly accessible. ({e})"""}), 400
         # file_path = drive_url
 
     if not file_path or not os.path.exists(file_path):
@@ -181,7 +181,7 @@ def process_transcription(transcription_id: str):
             ).transcribe(output_path, transcription)
             
             if not success:
-                raise Exception(f"Transcription failed: {error}")
+                raise Exception(f"""Transcription failed: {error}""")
             return txt_path
 
         def proofread_text(transcription: Transcription):
@@ -192,7 +192,7 @@ def process_transcription(transcription_id: str):
             # Proofread the transcribed text
             success, md_path, error = ProofreadingService().proofread(transcription, output_path)
             if not success:
-                raise Exception(f"Proofreading failed: {error}")
+                raise Exception(f"""Proofreading failed: {error}""")
 
             return md_path
 
@@ -205,7 +205,7 @@ def process_transcription(transcription_id: str):
             success, docx_path, error = PandocService().convert_to_docx(
                 md_path, output_file, reference_doc)
             if not success:
-                raise Exception(f"DOCX conversion failed: {error}")
+                raise Exception(f"""DOCX conversion failed: {error}""")
 
             return docx_path
 
@@ -231,7 +231,7 @@ def process_transcription(transcription_id: str):
         db.session.commit()
 
     except Exception as e:
-        logging.error(f"An error occurred: {e}")
+        logging.error(f"""An error occurred: {e}""")
         # Log error
         error_log = ErrorLog(
             user_id=transcription.user.id,

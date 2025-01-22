@@ -102,10 +102,10 @@ def delete_user(user_id):
 
     except OSError as e:
         db.session.rollback()
-        return jsonify({"error": f"Error deleting user files: {str(e)}"}), 500
+        return jsonify({"error": f"""Error deleting user files: {str(e)}"""}), 500
     except SQLAlchemyError as e:
         db.session.rollback()
-        return jsonify({"error": f"Database error: {str(e)}"}), 500
+        return jsonify({"error": f"""Database error: {str(e)}"""}), 500
 
 
 @admin.route('/transcriptions/<string:transcription_id>', methods=['DELETE'])
@@ -144,10 +144,10 @@ def delete_transcription(transcription_id):
 
     except OSError as e:
         db.session.rollback()
-        return jsonify({"error": f"Error deleting transcription files: {str(e)}"}), 500
+        return jsonify({"error": f"""Error deleting transcription files: {str(e)}"""}), 500
     except SQLAlchemyError as e:
         db.session.rollback()
-        return jsonify({"error": f"Database error: {str(e)}"}), 500
+        return jsonify({"error": f"""Database error: {str(e)}"""}), 500
 
 
 @admin.route('/logs', methods=['GET'])
