@@ -222,8 +222,9 @@ def process_transcription(transcription_id: str):
         # Stop VM after transcription, must be here because it check the status of transcription.
         TranscriptionService().stop_vm()
         # Second step: Proofread and generate other formats
-        md_path = proofread_text(transcription)
-        transcription.md_document_path = md_path
+        # md_path = proofread_text(transcription)
+        # transcription.md_document_path = md_path
+        transcription.md_document_path = txt_path
 
         transcription.status = 'converting'
         db.session.commit()
