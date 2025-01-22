@@ -119,7 +119,7 @@ class TranscriptionService:
             logging.error(
                 f"""Failed to communicate with TensorDock API during starting VM. HTTP 500 ({str(e)})""")
 
-    def _stop_vm(self):
+    def stop_vm(self):
         try:
             # Check if there are any other running transcriptions
             running_transcriptions = Transcription.query.filter(
@@ -182,7 +182,6 @@ class TranscriptionService:
                         print(f"""Status: {result.get('message')}""")
                         continue
                     else:
-                        self._stop_vm()
                         # It's a file download - transcription is complete
                         return response.content
                 else:

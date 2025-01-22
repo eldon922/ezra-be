@@ -61,7 +61,7 @@ executor = Executor(app)
 @jwt_required()
 def process_audio():
     user = User.query.filter_by(username=get_jwt_identity()).first()
-    
+
     # Create transcription record
     transcription = Transcription(
         user_id=user.id,
@@ -101,7 +101,7 @@ def process_audio():
         transcription.status = 'error'
         db.session.commit()
         return jsonify({"error": "No audio data provided or download failed"}), 400
-    
+
     transcription.audio_file_path = file_path
     transcription.google_drive_url = drive_url
     db.session.commit()
@@ -147,6 +147,7 @@ def download_word_file(username, transcription_id, filename):
 
 #     return send_file(os.path.join(app.config['AUDIO_FOLDER'], user.username, transcription_id, filename), as_attachment=True)
 
+
 @app.route('/download/txt/<username>/<transcription_id>/<filename>', methods=['GET'])
 @jwt_required()
 def download_txt_file(username, transcription_id, filename):
@@ -168,7 +169,8 @@ def download_txt_file(username, transcription_id, filename):
 
 def process_transcription(transcription_id: str):
     try:
-        transcription: Transcription = Transcription.query.get(transcription_id)
+        transcription: Transcription = Transcription.query.get(
+            transcription_id)
 
         def transcribe_audio(transcription: Transcription):
             os.makedirs(os.path.join(
@@ -179,7 +181,7 @@ def process_transcription(transcription_id: str):
             # Transcribe only
             success, txt_path, error = TranscriptionService(
             ).transcribe(output_path, transcription)
-            
+
             if not success:
                 raise Exception(f"""Transcription failed: {error}""")
             return txt_path
@@ -217,6 +219,8 @@ def process_transcription(transcription_id: str):
 
         transcription.status = 'proofreading'
         db.session.commit()
+        # Stop VM after transcription, must be here because it check the status of transcription.
+        TranscriptionService().stop_vm()
         # Second step: Proofread and generate other formats
         md_path = proofread_text(transcription)
         transcription.md_document_path = md_path
@@ -242,6 +246,7 @@ def process_transcription(transcription_id: str):
         transcription.status = 'error'
         db.session.add(error_log)
         db.session.commit()
+        TranscriptionService().stop_vm()
 
 
 if __name__ == '__main__':
