@@ -27,7 +27,7 @@ class TranscriptionService:
 
             db.session.refresh(transcription)
             output_path = os.path.join(output_path,
-                                       f"""{Path(transcription.audio_file_path).stem}.md""")
+                                       f"""{Path(transcription.audio_file_path).stem}.txt""")
 
             with open(output_path, 'wb') as f:
                 f.write(transcript_file)
