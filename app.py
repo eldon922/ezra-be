@@ -104,7 +104,6 @@ def process_audio():
     
     transcription.audio_file_path = file_path
     transcription.google_drive_url = drive_url
-    transcription.status = 'waiting'
     db.session.commit()
 
     executor.submit(process_transcription, transcription.id)
@@ -210,6 +209,8 @@ def process_transcription(transcription_id: str):
 
             return docx_path
 
+        transcription.status = 'waiting'
+        db.session.commit()
         # First step: Transcribe only
         txt_path = transcribe_audio(transcription)
         transcription.txt_document_path = txt_path
