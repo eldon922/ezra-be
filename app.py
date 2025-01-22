@@ -188,7 +188,7 @@ def process_transcription(transcription_id: str):
             os.makedirs(os.path.join(
                 app.config['MD_FOLDER'], transcription.user.username, str(transcription.id)), exist_ok=True)
             output_path = os.path.join(app.config['MD_FOLDER'], transcription.user.username, str(transcription.id), f"""{
-                                       Path(txt_path).stem}.md""")
+                                       Path(transcription.txt_document_path).stem}.md""")
             # Proofread the transcribed text
             success, md_path, error = ProofreadingService().proofread(transcription, output_path)
             if not success:
@@ -196,14 +196,14 @@ def process_transcription(transcription_id: str):
 
             return md_path
 
-        def convert_md_to_word(md_path, username):
+        def convert_md_to_word(transcription: Transcription):
             os.makedirs(os.path.join(
-                app.config['WORD_FOLDER'], username, str(transcription.id)), exist_ok=True)
-            output_file = os.path.join(app.config['WORD_FOLDER'], username, str(transcription.id), f"""{
-                                       Path(md_path).stem}.docx""")
+                app.config['WORD_FOLDER'], transcription.user.username, str(transcription.id)), exist_ok=True)
+            output_file = os.path.join(app.config['WORD_FOLDER'], transcription.user.username, str(transcription.id), f"""{
+                                       Path(transcription.md_document_path).stem}.docx""")
             reference_doc = 'reference_pandoc.docx'
             success, docx_path, error = PandocService().convert_to_docx(
-                md_path, output_file, reference_doc)
+                transcription.md_document_path, output_file, reference_doc)
             if not success:
                 raise Exception(f"""DOCX conversion failed: {error}""")
 
