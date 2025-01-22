@@ -31,7 +31,7 @@ class Transcription(db.Model):
     txt_document_path = db.Column(db.String(255))
     md_document_path = db.Column(db.String(255))
     word_document_path = db.Column(db.String(255))
-    status = db.Column(db.String(30), default='pending')
+    status = db.Column(db.String(30), default='uploading')
     transcribe_prompt = db.Column(db.Text)
     proofread_prompt = db.Column(db.Text)
     inference_duration = db.Column(db.Integer)

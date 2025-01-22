@@ -108,6 +108,48 @@ def delete_user(user_id):
         return jsonify({"error": f"Database error: {str(e)}"}), 500
 
 
+@admin.route('/transcriptions/<string:transcription_id>', methods=['DELETE'])
+@jwt_required()
+@require_admin
+def delete_transcription(transcription_id):
+    transcription: Transcription = Transcription.query.get(transcription_id)
+    if not transcription:
+        return jsonify({"error": "Transcription not found"}), 404
+
+    try:
+        # Delete associated records from related tables
+        ErrorLog.query.filter_by(transcription_id=transcription_id).delete()
+
+        # Delete the user
+        db.session.delete(transcription)
+
+        # Delete associated files
+        transcription_folders = [
+            os.path.join(current_app.config['AUDIO_FOLDER'], transcription.user.username, transcription_id),
+            os.path.join(current_app.config['TXT_FOLDER'], transcription.user.username, transcription_id),
+            os.path.join(current_app.config['MD_FOLDER'], transcription.user.username, transcription_id),
+            os.path.join(current_app.config['WORD_FOLDER'], transcription.user.username, transcription_id)
+        ]
+
+        # Commit database changes first
+        db.session.commit()
+
+        # Then handle file system operations
+        for folder in transcription_folders:
+            if os.path.exists(folder):
+                for file in os.listdir(folder):
+                    os.remove(os.path.join(folder, file))
+                os.rmdir(folder)
+        return jsonify({"message": "Transcription and all associated data deleted successfully"}), 200
+
+    except OSError as e:
+        db.session.rollback()
+        return jsonify({"error": f"Error deleting transcription files: {str(e)}"}), 500
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
+
+
 @admin.route('/logs', methods=['GET'])
 @jwt_required()
 @require_admin
@@ -371,29 +413,29 @@ def get_stats():
     }), 200
 
 
-@admin.route('/download/audio/<username>/<filename>', methods=['GET'])
+@admin.route('/download/audio/<username>/<transcription_id>/<filename>', methods=['GET'])
 @jwt_required()
 @require_admin
-def download_audio_file(username, filename):
-    return send_file(os.path.join(current_app.config['AUDIO_FOLDER'], username, filename), as_attachment=True)
+def download_audio_file(username, transcription_id, filename):
+    return send_file(os.path.join(current_app.config['AUDIO_FOLDER'], username, transcription_id, filename), as_attachment=True)
 
 
-@admin.route('/download/txt/<username>/<filename>', methods=['GET'])
+@admin.route('/download/txt/<username>/<transcription_id>/<filename>', methods=['GET'])
 @jwt_required()
 @require_admin
-def download_txt_file(username, filename):
-    return send_file(os.path.join(current_app.config['TXT_FOLDER'], username, filename), as_attachment=True)
+def download_txt_file(username, transcription_id, filename):
+    return send_file(os.path.join(current_app.config['TXT_FOLDER'], username, transcription_id, filename), as_attachment=True)
 
 
-@admin.route('/download/md/<username>/<filename>', methods=['GET'])
+@admin.route('/download/md/<username>/<transcription_id>/<filename>', methods=['GET'])
 @jwt_required()
 @require_admin
-def download_md_file(username, filename):
-    return send_file(os.path.join(current_app.config['MD_FOLDER'], username, filename), as_attachment=True)
+def download_md_file(username, transcription_id, filename):
+    return send_file(os.path.join(current_app.config['MD_FOLDER'], username, transcription_id, filename), as_attachment=True)
 
 
-@admin.route('/download/word/<username>/<filename>', methods=['GET'])
+@admin.route('/download/word/<username>/<transcription_id>/<filename>', methods=['GET'])
 @jwt_required()
 @require_admin
-def download_word_file(username, filename):
-    return send_file(os.path.join(current_app.config['WORD_FOLDER'], username, filename), as_attachment=True)
+def download_word_file(username, transcription_id, filename):
+    return send_file(os.path.join(current_app.config['WORD_FOLDER'], username, transcription_id, filename), as_attachment=True)

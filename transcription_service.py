@@ -12,12 +12,12 @@ class TranscriptionService:
         self.api_key = os.environ.get('TRANSCRIBE_API_KEY')
         self.url = os.environ.get('TRANSCRIBE_API_URL')
 
-    def transcribe(self, file_path: str, output_path: str, transcription: Transcription) -> tuple[bool, str, Optional[str]]:
+    def transcribe(self, output_path: str, transcription: Transcription) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
         try:
-            self._call_inference_api(file_path, transcription)
+            self._call_inference_api(transcription)
 
-            transcript_file = self._get_transcription_result(transcription)
+            transcript_file = self._get_transcription_result(transcription.id)
 
             with open(output_path, 'wb') as f:
                 f.write(transcript_file)
@@ -28,7 +28,7 @@ class TranscriptionService:
             logging.error(f"An error occurred: {e}")
             return False, None, str(e)
 
-    def _call_inference_api(self, file_path: str, transcription: Transcription):
+    def _call_inference_api(self, transcription: Transcription):
         active_transcribe_prompt_setting = SystemSetting.query.filter_by(
             setting_key='active_transcribe_prompt_id').first()
         if not active_transcribe_prompt_setting:
@@ -47,7 +47,7 @@ class TranscriptionService:
             'transcription_id': transcription.id
         }
         files = {
-            'audio': open(file_path, 'rb')
+            'audio': open(transcription.audio_file_path, 'rb')
         }
 
         # Add the API key to the headers
@@ -67,9 +67,9 @@ class TranscriptionService:
             logging.error(transcript_result = response.json().get(
                 'error', 'Error in transcription request'))
             
-    def _get_transcription_result(self, transcription: Transcription):
+    def _get_transcription_result(self, transcription_id: str):
         # Construct the full URL
-        fetch_url = f"{self.url}/gettranscriptionresult/{transcription.id}"
+        fetch_url = f"{self.url}/gettranscriptionresult/{transcription_id}"
         
         # Set up headers with API key
         headers = {
