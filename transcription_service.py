@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 import time
 from typing import Optional
 
@@ -23,6 +24,10 @@ class TranscriptionService:
             self._call_inference_api(transcription)
 
             transcript_file = self._get_transcription_result(transcription.id)
+
+            db.session.refresh(transcription)
+            output_path = os.path.join(output_path,
+                                       f"""{Path(transcription.audio_file_path).stem}.md""")
 
             with open(output_path, 'wb') as f:
                 f.write(transcript_file)
@@ -55,7 +60,7 @@ class TranscriptionService:
                 response = requests.post(
                     f"""{self.transcribe_api_url}/process""",
                     data={'transcription_id': transcription.id},
-                    files={'audio': open(transcription.audio_file_path, 'rb')},
+                    # files={'audio': open(transcription.audio_file_path, 'rb')},
                     headers={'x-api-key': self.transcribe_api_key}
                 )
             except Exception as e:

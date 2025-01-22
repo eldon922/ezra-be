@@ -75,35 +75,35 @@ def process_audio():
     os.makedirs(os.path.join(
         app.config['AUDIO_FOLDER'], user.username, str(transcription.id)), exist_ok=True)
 
-    if 'file' in request.files:
-        audio_file = request.files['file']
-        audio_data = audio_file.read()
-        file_path = os.path.join(
-            app.config['AUDIO_FOLDER'], user.username, str(transcription.id), audio_file.filename)
-        with open(file_path, 'wb') as f:
-            f.write(audio_data)
-    elif 'drive_link' in request.form:
-        drive_url = request.form['drive_link']
-        folder_path = os.path.join(
-            app.config['AUDIO_FOLDER'], user.username, str(transcription.id), "")
-        try:
-            file_path = gdown.download(drive_url, folder_path, fuzzy=True)
-            if file_path is None:
-                raise Exception(
-                    "Download failed. Please check if the Google Drive link is valid and publicly accessible.")
-        except Exception as e:
-            transcription.status = 'error'
-            db.session.commit()
-            return jsonify({"error": f"""Invalid Google Drive URL. Please make sure the link is correct and the file is publicly accessible. ({e})"""}), 400
-        # file_path = drive_url
+    # if 'file' in request.files:
+    #     audio_file = request.files['file']
+    #     audio_data = audio_file.read()
+    #     file_path = os.path.join(
+    #         app.config['AUDIO_FOLDER'], user.username, str(transcription.id), audio_file.filename)
+    #     with open(file_path, 'wb') as f:
+    #         f.write(audio_data)
+    # elif 'drive_link' in request.form:
+    #     drive_url = request.form['drive_link']
+    #     folder_path = os.path.join(
+    #         app.config['AUDIO_FOLDER'], user.username, str(transcription.id), "")
+    #     try:
+    #         file_path = gdown.download(drive_url, folder_path, fuzzy=True)
+    #         if file_path is None:
+    #             raise Exception(
+    #                 "Download failed. Please check if the Google Drive link is valid and publicly accessible.")
+    #     except Exception as e:
+    #         transcription.status = 'error'
+    #         db.session.commit()
+    #         return jsonify({"error": f"""Invalid Google Drive URL. Please make sure the link is correct and the file is publicly accessible. ({e})"""}), 400
+    #     # file_path = drive_url
 
-    if not file_path or not os.path.exists(file_path):
-        transcription.status = 'error'
-        db.session.commit()
-        return jsonify({"error": "No audio data provided or download failed"}), 400
+    # if not file_path or not os.path.exists(file_path):
+    #     transcription.status = 'error'
+    #     db.session.commit()
+    #     return jsonify({"error": "No audio data provided or download failed"}), 400
 
-    transcription.audio_file_path = file_path
-    transcription.google_drive_url = drive_url
+    # transcription.audio_file_path = file_path
+    transcription.google_drive_url = request.form['drive_link']
     db.session.commit()
 
     executor.submit(process_transcription, transcription.id)
@@ -175,8 +175,7 @@ def process_transcription(transcription_id: str):
         def transcribe_audio(transcription: Transcription):
             os.makedirs(os.path.join(
                 app.config['TXT_FOLDER'], transcription.user.username, str(transcription.id)), exist_ok=True)
-            output_path = os.path.join(app.config['TXT_FOLDER'], transcription.user.username, str(transcription.id), f"""{
-                                       Path(transcription.audio_file_path).stem}.txt""")
+            output_path = os.path.join(app.config['TXT_FOLDER'], transcription.user.username, str(transcription.id))
 
             # Transcribe only
             success, txt_path, error = TranscriptionService(
