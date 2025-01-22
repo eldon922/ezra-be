@@ -137,7 +137,7 @@ class TranscriptionService:
                 'api_key': self.tensordock_api_key,
                 'api_token': self.tensordock_api_token,
                 'server': self.tensordock_vm_uuid,
-                'disassociate_resources': True
+                'disassociate_resources': 'true'
             }
 
             while (True):
