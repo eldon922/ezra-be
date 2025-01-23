@@ -125,7 +125,7 @@ def get_transcriptions():
         "status": t.status,
         "word_document_path": t.word_document_path if t.word_document_path else None,
         "txt_document_path": t.txt_document_path if t.txt_document_path else None,
-        "audio_file_name": f"""{Path(t.audio_file_path).stem}""" if t.audio_file_path else None
+        "audio_file_name": f"""{Path(t.audio_file_path).stem}""" if t.audio_file_path else t.google_drive_url,
     } for t in transcriptions]), 200
 
 
