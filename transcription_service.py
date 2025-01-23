@@ -39,7 +39,6 @@ class TranscriptionService:
             return True, output_path, None
 
         except Exception as e:
-            logging.error(f"""An error occurred: {e}""")
             return False, None, str(e)
 
     def _call_inference_api(self, transcription: Transcription):
