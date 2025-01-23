@@ -28,6 +28,8 @@ class TranscriptionService:
         """Returns (success, output_path, error_message)"""
         try:
             self._call_inference_api(transcription)
+            
+            db.session.close()
 
             transcript_file = self._get_transcription_result(transcription.id)
 
@@ -38,6 +40,7 @@ class TranscriptionService:
             with open(output_path, 'wb') as f:
                 f.write(transcript_file)
 
+            db.session.close()
             return True, output_path, None
 
         except Exception as e:
