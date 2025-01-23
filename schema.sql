@@ -1,5 +1,8 @@
-CREATE USER ezra_user WITH PASSWORD '[PASSWORD]' CREATEDB;
+CREATE USER ezra_user WITH PASSWORD '[PASSWORD]' CREATEDB SUPERUSER;
 ALTER USER ezra_user WITH PASSWORD '[PASSWORD]';
+ALTER ROLE ezra_user SUPERUSER;
+
+GRANT ALL ON SCHEMA public TO ezra_user;
 
 SET ROLE ezra_user;
 
@@ -116,26 +119,26 @@ EXECUTE FUNCTION update_modified_column();
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ezra_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ezra_user;
 
-GRANT ALL ON SCHEMA public TO ezra_user;
-
 ---------------------------------------------------------------------------------------------------
 
 -- Insert an initial admin user (change the username and password as needed)
 INSERT INTO users (username, password, is_admin)
 VALUES ('admin', 'scrypt:32768:8:1$Kp4H6ecI5RX33V91$f52fcf74b6ca0c0ba5c983d2ee0a8d23f5bd76f7963bbab210aeea9d4c973bf57af5ee8f3d78b555d5cd157d5af21d095793a17f3d8b2065511149bde23d957b', TRUE);
 
--- Insert initial transcribe prompt
 INSERT INTO transcribe_prompts (version, prompt)
 VALUES ('EMPTY', '');
 
--- Insert initial proofread prompt
 INSERT INTO proofread_prompts (version, prompt)
 VALUES ('EMPTY', '');
 
--- Insert initial transcribe settings
 INSERT INTO system_settings (setting_key, setting_value, description)
 VALUES ('active_transcribe_prompt_id', '1', 'The ID of the currently active transcribe prompt');
 
--- Insert initial system settings
 INSERT INTO system_settings (setting_key, setting_value, description)
 VALUES ('active_proofread_prompt_id', '1', 'The ID of the currently active proofread prompt');
+
+INSERT INTO system_settings (setting_key, setting_value, description)
+VALUES ('transcribing_allowed', 'true', 'Whether transcribing is currently allowed or not');
+
+INSERT INTO system_settings (setting_key, setting_value, description)
+VALUES ('gpu_vm_is_running', 'false', 'Whether GPU VM is currently running or not');

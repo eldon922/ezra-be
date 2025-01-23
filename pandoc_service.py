@@ -16,5 +16,4 @@ class PandocService:
             return True, output_file, None
 
         except Exception as e:
-            logging.error(f"""An error occurred: {e}""")
             return False, None, str(e)
