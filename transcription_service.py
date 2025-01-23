@@ -126,7 +126,6 @@ class TranscriptionService:
 
                 # Make request to TensorDock
                 response = requests.post(url, data=payload)
-                response.raise_for_status()
 
                 # Parse response
                 response_data = response.json()
