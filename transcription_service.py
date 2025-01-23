@@ -60,7 +60,10 @@ class TranscriptionService:
                 Transcription.status.in_(
                     ['transcribing'])
             ).count()
+            logging.info(f"""Check for call API: Found {running_transcriptions} running transcriptions.""")
             if running_transcriptions >= 2:
+                logging.info(
+                    f"""Found {running_transcriptions} running transcriptions. Retry in 60 seconds...""")
                 time.sleep(60)
                 continue
             
