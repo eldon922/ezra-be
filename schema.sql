@@ -1,5 +1,8 @@
-CREATE USER ezra_user WITH PASSWORD '[PASSWORD]' CREATEDB;
+CREATE USER ezra_user WITH PASSWORD '[PASSWORD]' CREATEDB SUPERUSER;
 ALTER USER ezra_user WITH PASSWORD '[PASSWORD]';
+ALTER ROLE ezra_user SUPERUSER;
+
+GRANT ALL ON SCHEMA public TO ezra_user;
 
 SET ROLE ezra_user;
 
@@ -115,8 +118,6 @@ EXECUTE FUNCTION update_modified_column();
 
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ezra_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ezra_user;
-
-GRANT ALL ON SCHEMA public TO ezra_user;
 
 ---------------------------------------------------------------------------------------------------
 
