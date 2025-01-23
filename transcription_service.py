@@ -55,16 +55,14 @@ class TranscriptionService:
 
         self._start_vm()
 
+        transcribing_allowed_setting = SystemSetting.query.filter_by(
+            setting_key='transcribing_allowed').first()
         while True:
-            # Check if there are any other running transcriptions
-            running_transcriptions = Transcription.query.filter(
-                Transcription.status.in_(
-                    ['transcribing'])
-            ).count()
-            if running_transcriptions >= 1:
+            db.session.refresh(transcribing_allowed_setting)
+            if transcribing_allowed_setting.setting_value == 'false':
                 duration = random.randrange(2, 300, 2)
                 logging.info(
-                    f"""Found {running_transcriptions} running transcriptions. Retry in {duration} seconds...""")
+                    f"""There is running process of transcribe. Retry in {duration} seconds...""")
                 time.sleep(duration)
                 continue
             
