@@ -62,7 +62,7 @@ class TranscriptionService:
                     ['transcribing'])
             ).count()
             if running_transcriptions >= 1:
-                duration = random.randrange(5, 300, 5)
+                duration = random.randrange(2, 300, 2)
                 logging.info(
                     f"""Found {running_transcriptions} running transcriptions. Retry in {duration} seconds...""")
                 time.sleep(duration)
@@ -77,9 +77,10 @@ class TranscriptionService:
                     headers={'x-api-key': self.transcribe_api_key}
                 )
             except Exception as e:
+                duration = random.randrange(2, 61, 2)
                 logging.warning(f"""Error occurred: {
-                                str(e)}. Retrying in 60 seconds...""")
-                time.sleep(60)
+                                str(e)}. Retrying in {duration} seconds...""")
+                time.sleep(duration)
                 continue
 
             # Parse response
@@ -95,10 +96,11 @@ class TranscriptionService:
                 raise ValueError(f"""Inference API Error: {
                                  response_data.get('error')}""")
             else:
+                duration = random.randrange(2, 61, 2)
                 # For other status codes, wait and retry
                 logging.warning(f"""Received status code {
-                                response.status_code}. Retrying in 60 seconds...""")
-                time.sleep(60)
+                                response.status_code}. Retrying in {duration} seconds...""")
+                time.sleep(duration)
                 continue
 
     def _start_vm(self):
