@@ -184,7 +184,7 @@ class TranscriptionService:
 
         while True:
             try:
-                time.sleep(10)  # Wait 10 seconds between checks
+                time.sleep(60)
 
                 response = requests.get(
                     fetch_url, headers={"x-api-key": self.transcribe_api_key})
