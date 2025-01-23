@@ -61,7 +61,7 @@ class TranscriptionService:
                 Transcription.status.in_(
                     ['transcribing'])
             ).count()
-            if running_transcriptions >= 2:
+            if running_transcriptions >= 1:
                 duration = random.randrange(5, 300, 5)
                 logging.info(
                     f"""Found {running_transcriptions} running transcriptions. Retry in {duration} seconds...""")
