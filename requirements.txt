@@ -1,8 +1,6 @@
 Flask==3.1.0
 Flask_JWT_Extended==4.6.0
 flask_sqlalchemy==3.1.1
-google_api_python_client==2.153.0
-google_auth_oauthlib==1.2.1
 protobuf==5.28.3
 python-dotenv==1.0.1
 SQLAlchemy==2.0.35

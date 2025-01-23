@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+import random
 import time
 from typing import Optional
 
@@ -60,11 +61,11 @@ class TranscriptionService:
                 Transcription.status.in_(
                     ['transcribing'])
             ).count()
-            logging.info(f"""Check for call API: Found {running_transcriptions} running transcriptions.""")
             if running_transcriptions >= 2:
+                duration = random.randrange(5, 300, 5)
                 logging.info(
-                    f"""Found {running_transcriptions} running transcriptions. Retry in 60 seconds...""")
-                time.sleep(60)
+                    f"""Found {running_transcriptions} running transcriptions. Retry in {duration} seconds...""")
+                time.sleep(duration)
                 continue
             
             # Make the POST request to the Flask API
