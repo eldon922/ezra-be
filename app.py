@@ -182,6 +182,9 @@ def process_transcription(transcription_id: str):
             ).transcribe(output_path, transcription)
 
             if not success:
+                transcription.status = 'error'
+                db.session.commit()
+                TranscriptionService().stop_vm()
                 raise Exception(f"""Transcription failed: {error}""")
             return txt_path
 
@@ -246,7 +249,6 @@ def process_transcription(transcription_id: str):
         transcription.status = 'error'
         db.session.add(error_log)
         db.session.commit()
-        TranscriptionService().stop_vm()
 
 
 if __name__ == '__main__':

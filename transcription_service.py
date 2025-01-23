@@ -19,6 +19,8 @@ class TranscriptionService:
         self.tensordock_api_token = os.environ.get('TENSORDOCK_API_TOKEN')
         self.tensordock_vm_uuid = os.environ.get('TENSORDOCK_VM_UUID')
 
+        self.transcribing_allowed_setting = SystemSetting.query.filter_by(
+            setting_key='transcribing_allowed').first()
         self.gpu_vm_is_running_setting = SystemSetting.query.filter_by(
             setting_key='gpu_vm_is_running').first()
 
@@ -55,19 +57,22 @@ class TranscriptionService:
         transcription.transcribe_prompt = transcribe_prompt.prompt
         db.session.commit()
 
-        self._start_vm()
-
-        transcribing_allowed_setting = SystemSetting.query.filter_by(
-            setting_key='transcribing_allowed').first()
         while True:
-            db.session.refresh(transcribing_allowed_setting)
-            if transcribing_allowed_setting.setting_value == 'false':
+            db.session.refresh(self.transcribing_allowed_setting)
+            if self.transcribing_allowed_setting.setting_value == 'true':
+                break
+            else:
                 duration = random.randrange(2, 300, 2)
                 logging.info(
                     f"""There is running process of transcribe. Retry in {duration} seconds...""")
                 time.sleep(duration)
-                continue
 
+        self.transcribing_allowed_setting.setting_value = 'false'
+        db.session.commit()
+
+        self._start_vm()
+
+        while True:
             # Make the POST request to the Flask API
             try:
                 response = requests.post(
@@ -184,10 +189,14 @@ class TranscriptionService:
                 if response_data.get('success') is True:
                     self.gpu_vm_is_running_setting.setting_value = 'false'
                     db.session.commit()
+                    self.transcribing_allowed_setting.setting_value = 'true'
+                    db.session.commit()
                     logging.info("VM stopped successfully")
                     return
                 elif response_data.get('error') == "Machine is stoppeddisassociated, therefore it cannot be stopped":
                     self.gpu_vm_is_running_setting.setting_value = 'false'
+                    db.session.commit()
+                    self.transcribing_allowed_setting.setting_value = 'true'
                     db.session.commit()
                     logging.info("VM is already stopped")
                     return
