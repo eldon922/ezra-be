@@ -64,7 +64,7 @@ class TranscriptionService:
             else:
                 duration = random.randrange(2, 300, 2)
                 logging.info(
-                    f"""There is running process of transcribe. Retry in {duration} seconds...""")
+                    f"""There is a running process of transcribe. Retry in {duration} seconds...""")
                 time.sleep(duration)
 
         self.transcribing_allowed_setting.setting_value = 'false'
@@ -159,16 +159,6 @@ class TranscriptionService:
 
     def stop_vm(self):
         try:
-            # Check if there are any other running transcriptions
-            running_transcriptions = Transcription.query.filter(
-                Transcription.status.in_(
-                    ['uploading', 'waiting', 'transcribing', 'waiting_for_proofreading'])
-            ).count()
-            if running_transcriptions > 0:
-                logging.info(
-                    f"""Found {running_transcriptions} running transcriptions. Keeping VM running.""")
-                return
-
             # Prepare request to TensorDock API
             url = f"""{self.tensordock_api_url}/stop/single"""
             payload = {
