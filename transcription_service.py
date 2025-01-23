@@ -102,16 +102,16 @@ class TranscriptionService:
                 continue
 
     def _start_vm(self):
-        try:
-            # Prepare request to TensorDock API
-            url = f"""{self.tensordock_api_url}/start/single"""
-            payload = {
-                'api_key': self.tensordock_api_key,
-                'api_token': self.tensordock_api_token,
-                'server': self.tensordock_vm_uuid
-            }
+        # Prepare request to TensorDock API
+        url = f"""{self.tensordock_api_url}/start/single"""
+        payload = {
+            'api_key': self.tensordock_api_key,
+            'api_token': self.tensordock_api_token,
+            'server': self.tensordock_vm_uuid
+        }
 
-            while (True):
+        while (True):
+            try:
                 # Make request to TensorDock
                 response = requests.post(url, data=payload)
                 response.raise_for_status()
@@ -128,14 +128,18 @@ class TranscriptionService:
                     logging.info("VM is already running")
                     return
                 else:
+                    duration = random.randrange(2, 61, 2)
                     logging.info(
-                        f"""Failed to start VM. Retrying in 60 seconds...""")
-                    time.sleep(60)
+                        f"""Failed to start VM. Retrying in {duration} seconds...""")
+                    time.sleep(duration)
                     continue
-
-        except requests.exceptions.RequestException as e:
-            logging.error(
-                f"""Failed to communicate with TensorDock API during starting VM. HTTP 500 ({str(e)})""")
+                
+            except requests.exceptions.RequestException as e:
+                duration = random.randrange(70, 140, 2)
+                logging.error(
+                    f"""Failed to communicate with TensorDock API during starting VM. HTTP 500 ({str(e)}). Retrying in {duration} seconds...""")
+                time.sleep(duration)
+                continue
 
     def stop_vm(self):
         try:
