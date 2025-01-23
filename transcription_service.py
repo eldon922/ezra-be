@@ -55,6 +55,15 @@ class TranscriptionService:
         self._start_vm()
 
         while True:
+            # Check if there are any other running transcriptions
+            running_transcriptions = Transcription.query.filter(
+                Transcription.status.in_(
+                    ['transcribing'])
+            ).count()
+            if running_transcriptions >= 2:
+                time.sleep(60)
+                continue
+            
             # Make the POST request to the Flask API
             try:
                 response = requests.post(
