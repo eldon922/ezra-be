@@ -144,6 +144,7 @@ class TranscriptionService:
                     return
                 else:
                     duration = random.randrange(2, 61, 2)
+                    logging.info(response_data)
                     logging.info(
                         f"""Failed to start VM. Retrying in {duration} seconds...""")
                     time.sleep(duration)
@@ -190,6 +191,7 @@ class TranscriptionService:
                     logging.info("VM is already stopped")
                     return
                 else:
+                    logging.info(response_data)
                     logging.info(
                         f"""Failed to stop VM. Retrying in 60 seconds...""")
                     time.sleep(60)
