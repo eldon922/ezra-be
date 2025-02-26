@@ -4,14 +4,18 @@ from typing import Optional
 import anthropic
 from models import ProofreadPrompt, SystemSetting, Transcription
 from database import db
+from openai import OpenAI
 
 
 class ProofreadingService:
     def __init__(self):
         self.anthropic_api_key = os.environ.get('ANTHROPIC_API_KEY')
+        self.deepseek_api_key = os.environ.get('DEEPSEEK_API_KEY')
+        self.deepseek_base_url = os.environ.get('DEEPSEEK_BASE_URL')
 
         # Initialize Anthropic
         self.claude = anthropic.Anthropic(api_key=self.anthropic_api_key)
+        self.deepseek = OpenAI(api_key=self.deepseek_api_key, base_url=self.deepseek_base_url)
 
     def proofread(self, transcription: Transcription, output_path: str) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
@@ -52,14 +56,23 @@ class ProofreadingService:
             # Process all parts
             processed_parts = []
             for part in parts:
-                response = self.claude.messages.create(
-                    model="claude-3-5-sonnet-20241022",
+                # response = self.claude.messages.create(
+                #     model="claude-3-5-sonnet-20241022",
+                #     max_tokens=8192,
+                #     temperature=0,
+                #     system=proofread_prompt.prompt,
+                #     messages=[{"role": "user", "content": part}]
+                # )
+                # processed_parts.append(response.content[0].text)
+                response = self.deepseek.chat.completions.create(
+                    model="deepseek-chat",
                     max_tokens=8192,
                     temperature=0,
-                    system=proofread_prompt.prompt,
-                    messages=[{"role": "user", "content": part}]
+                    messages=[{ "role": "system", "content": proofread_prompt.prompt },
+                              {"role": "user", "content": part}],
+                    stream=False
                 )
-                processed_parts.append(response.content[0].text)
+                processed_parts.append(response.choices[0].message.content)
 
             # Combine all processed parts
             combined_output = " ".join(processed_parts)

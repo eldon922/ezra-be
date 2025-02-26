@@ -16,3 +16,4 @@ pandoc
 psycopg2-binary
 pypandoc-binary
 httpx==0.27.2
+openai
