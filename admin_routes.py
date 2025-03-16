@@ -83,7 +83,7 @@ def delete_user(user_id):
 
         # Delete associated files
         user_folders = [
-            os.path.join(current_app.config['AUDIO_FOLDER'], user.username),
+            # os.path.join(current_app.config['AUDIO_FOLDER'], user.username),
             os.path.join(current_app.config['TXT_FOLDER'], user.username),
             os.path.join(current_app.config['MD_FOLDER'], user.username),
             os.path.join(current_app.config['WORD_FOLDER'], user.username)
@@ -125,7 +125,7 @@ def delete_transcription(transcription_id):
 
         # Delete associated files
         transcription_folders = [
-            os.path.join(current_app.config['AUDIO_FOLDER'], transcription.user.username, transcription_id),
+            # os.path.join(current_app.config['AUDIO_FOLDER'], transcription.user.username, transcription_id),
             os.path.join(current_app.config['TXT_FOLDER'], transcription.user.username, transcription_id),
             os.path.join(current_app.config['MD_FOLDER'], transcription.user.username, transcription_id),
             os.path.join(current_app.config['WORD_FOLDER'], transcription.user.username, transcription_id)
@@ -413,11 +413,11 @@ def get_stats():
     }), 200
 
 
-@admin.route('/download/audio/<username>/<transcription_id>/<filename>', methods=['GET'])
-@jwt_required()
-@require_admin
-def download_audio_file(username, transcription_id, filename):
-    return send_file(os.path.join(current_app.config['AUDIO_FOLDER'], username, transcription_id, filename), as_attachment=True)
+# @admin.route('/download/audio/<username>/<transcription_id>/<filename>', methods=['GET'])
+# @jwt_required()
+# @require_admin
+# def download_audio_file(username, transcription_id, filename):
+#     return send_file(os.path.join(current_app.config['AUDIO_FOLDER'], username, transcription_id, filename), as_attachment=True)
 
 
 @admin.route('/download/txt/<username>/<transcription_id>/<filename>', methods=['GET'])

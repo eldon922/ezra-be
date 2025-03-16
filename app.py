@@ -31,7 +31,7 @@ app.config['JWT_SECRET_KEY'] = os.environ.get(
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['ROOT_FOLDER'] = 'user-files'
-app.config['AUDIO_FOLDER'] = os.path.join(app.config['ROOT_FOLDER'], 'audio')
+# app.config['AUDIO_FOLDER'] = os.path.join(app.config['ROOT_FOLDER'], 'audio')
 app.config['TXT_FOLDER'] = os.path.join(app.config['ROOT_FOLDER'], 'txt')
 app.config['MD_FOLDER'] = os.path.join(app.config['ROOT_FOLDER'], 'md')
 app.config['WORD_FOLDER'] = os.path.join(app.config['ROOT_FOLDER'], 'word')
@@ -71,10 +71,10 @@ def process_audio():
     db.session.add(transcription)
     db.session.commit()
 
-    file_path = None
-    drive_url = None
-    os.makedirs(os.path.join(
-        app.config['AUDIO_FOLDER'], user.username, str(transcription.id)), exist_ok=True)
+    # file_path = None
+    # drive_url = None
+    # os.makedirs(os.path.join(
+    #     app.config['AUDIO_FOLDER'], user.username, str(transcription.id)), exist_ok=True)
 
     # if 'file' in request.files:
     #     audio_file = request.files['file']
