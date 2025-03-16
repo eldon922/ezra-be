@@ -2,9 +2,10 @@ import logging
 import os
 from typing import Optional
 import anthropic
+import asyncio
 from models import ProofreadPrompt, SystemSetting, Transcription
 from database import db
-from openai import OpenAI
+from openai import AsyncOpenAI, OpenAI
 
 
 class ProofreadingService:
@@ -15,7 +16,35 @@ class ProofreadingService:
 
         # Initialize Anthropic
         self.claude = anthropic.Anthropic(api_key=self.anthropic_api_key)
-        self.deepseek = OpenAI(api_key=self.deepseek_api_key, base_url=self.deepseek_base_url)
+        self.async_deepseek = AsyncOpenAI(api_key=self.deepseek_api_key, base_url=self.deepseek_base_url)
+
+    async def process_part(self, part: str, prompt: str) -> str:
+        # response = self.claude.messages.create(
+        #     model="claude-3-5-sonnet-20241022",
+        #     max_tokens=8192,
+        #     temperature=0,
+        #     system=proofread_prompt.prompt,
+        #     messages=[{"role": "user", "content": part}]
+        # )
+        # processed_parts.append(response.content[0].text)
+        """Process a single part of text asynchronously"""
+        response = await self.async_deepseek.chat.completions.create(
+            model="deepseek-chat",
+            max_tokens=8192,
+            temperature=0,
+            messages=[
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": part}
+            ],
+            stream=False
+        )
+        return response.choices[0].message.content
+
+    async def process_all_parts(self, parts: list[str], prompt: str) -> list[str]:
+        """Process all parts concurrently while maintaining order"""
+        tasks = [self.process_part(part, prompt) for part in parts]
+        results = await asyncio.gather(*tasks)
+        return results
 
     def proofread(self, transcription: Transcription, output_path: str) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
@@ -53,26 +82,8 @@ class ProofreadingService:
             transcription.proofread_prompt = proofread_prompt.prompt
             db.session.commit()
 
-            # Process all parts
-            processed_parts = []
-            for part in parts:
-                # response = self.claude.messages.create(
-                #     model="claude-3-5-sonnet-20241022",
-                #     max_tokens=8192,
-                #     temperature=0,
-                #     system=proofread_prompt.prompt,
-                #     messages=[{"role": "user", "content": part}]
-                # )
-                # processed_parts.append(response.content[0].text)
-                response = self.deepseek.chat.completions.create(
-                    model="deepseek-chat",
-                    max_tokens=8192,
-                    temperature=0,
-                    messages=[{ "role": "system", "content": proofread_prompt.prompt },
-                              {"role": "user", "content": part}],
-                    stream=False
-                )
-                processed_parts.append(response.choices[0].message.content)
+            # Process all parts asynchronously
+            processed_parts = asyncio.run(self.process_all_parts(parts, proofread_prompt.prompt))
 
             # Combine all processed parts
             combined_output = " ".join(processed_parts)
