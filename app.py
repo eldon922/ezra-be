@@ -235,6 +235,7 @@ def process_transcription(transcription_id: str):
         # Final update to transcription record
         transcription.status = 'completed'
         db.session.commit()
+        logging.info(f"""Transcription {f"""{Path(transcription.audio_file_path).stem}""" if transcription.audio_file_path else transcription.google_drive_url} completed successfully""")
 
     except Exception as e:
         logging.error(f"""An error occurred: {e}""")
