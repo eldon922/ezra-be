@@ -109,15 +109,15 @@ class TranscriptionService:
                 continue
 
     def _start_vm(self):
-        # Prepare request to TensorDock API
-        url = f"""{self.tensordock_api_url}/start/single"""
-        payload = {
-            'api_key': self.tensordock_api_key,
-            'api_token': self.tensordock_api_token,
-            'server': self.tensordock_vm_uuid
+        # Prepare request to TensorDock API v2
+        url = f"https://dashboard.tensordock.com/api/v2/instances/{self.tensordock_vm_uuid}/start"
+        headers = {
+            "Authorization": f"Bearer {self.tensordock_api_token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
         }
 
-        while (True):
+        while True:
             try:
                 db.session.refresh(self.gpu_vm_is_running_setting)
                 if self.gpu_vm_is_running_setting.setting_value == 'true':
@@ -125,26 +125,22 @@ class TranscriptionService:
                     return
 
                 # Make request to TensorDock
-                response = requests.post(url, data=payload)
+                response = requests.post(url, headers=headers)
 
-                # Parse response
-                response_data = response.json()
-
-                # Handle specific response cases
-                if response_data.get('success') is True:
+                if response.status_code == 200:
                     time.sleep(60)  # Wait for VM to fully start up
                     self.gpu_vm_is_running_setting.setting_value = 'true'
                     db.session.commit()
                     logging.info("VM started successfully")
                     return
-                elif response_data.get('error') == "Machine is running, therefore it cannot be started":
+                elif response.text == 'Instance must be stopped or stopped-disassociated to start':
                     self.gpu_vm_is_running_setting.setting_value = 'true'
                     db.session.commit()
                     logging.info("VM is already running")
                     return
                 else:
                     duration = random.randrange(2, 61, 2)
-                    logging.info(response_data)
+                    logging.info(response)
                     logging.info(
                         f"""Failed to start VM. Retrying in {duration} seconds...""")
                     time.sleep(duration)
@@ -159,31 +155,26 @@ class TranscriptionService:
 
     def stop_vm(self):
         try:
-            # Prepare request to TensorDock API
-            url = f"""{self.tensordock_api_url}/stop/single"""
-            payload = {
-                'api_key': self.tensordock_api_key,
-                'api_token': self.tensordock_api_token,
-                'server': self.tensordock_vm_uuid,
-                'disassociate_resources': 'true'
+            # Prepare request to TensorDock API v2
+            url = f"https://dashboard.tensordock.com/api/v2/instances/{self.tensordock_vm_uuid}/disassociate"
+            headers = {
+                "Authorization": f"Bearer {self.tensordock_api_token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json"
             }
 
-            while (True):
+            while True:
                 # Make request to TensorDock
-                response = requests.post(url, data=payload)
-                response.raise_for_status()
+                response = requests.post(url, headers=headers)
 
-                # Parse response
-                response_data = response.json()
-
-                if response_data.get('success') is True:
+                if response.status_code == 200:
                     self.gpu_vm_is_running_setting.setting_value = 'false'
                     db.session.commit()
                     self.transcribing_allowed_setting.setting_value = 'true'
                     db.session.commit()
                     logging.info("VM stopped successfully")
                     return
-                elif response_data.get('error') == "Machine is stoppeddisassociated, therefore it cannot be stopped":
+                elif response.text == 'Instance must be running or stopped to disassociate':
                     self.gpu_vm_is_running_setting.setting_value = 'false'
                     db.session.commit()
                     self.transcribing_allowed_setting.setting_value = 'true'
@@ -191,7 +182,7 @@ class TranscriptionService:
                     logging.info("VM is already stopped")
                     return
                 else:
-                    logging.info(response_data)
+                    logging.info(response)
                     logging.info(
                         f"""Failed to stop VM. Retrying in 60 seconds...""")
                     time.sleep(60)
