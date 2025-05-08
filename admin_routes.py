@@ -95,8 +95,6 @@ def delete_user(user_id):
         # Then handle file system operations
         for folder in user_folders:
             if os.path.exists(folder):
-                for file in os.listdir(folder):
-                    os.remove(os.path.join(folder, file))
                 os.rmdir(folder)
         return jsonify({"message": "User and all associated data deleted successfully"}), 200
 
