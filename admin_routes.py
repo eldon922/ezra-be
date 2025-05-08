@@ -1,5 +1,6 @@
 from functools import wraps
 import os
+import shutil
 from flask import Blueprint, current_app, request, jsonify, send_file
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy.exc import SQLAlchemyError
@@ -95,7 +96,7 @@ def delete_user(user_id):
         # Then handle file system operations
         for folder in user_folders:
             if os.path.exists(folder):
-                os.rmdir(folder)
+                shutil.rmtree(folder)
         return jsonify({"message": "User and all associated data deleted successfully"}), 200
 
     except OSError as e:
