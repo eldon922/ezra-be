@@ -136,9 +136,7 @@ def delete_transcription(transcription_id):
         # Then handle file system operations
         for folder in transcription_folders:
             if os.path.exists(folder):
-                for file in os.listdir(folder):
-                    os.remove(os.path.join(folder, file))
-                os.rmdir(folder)
+                shutil.rmtree(folder)
         return jsonify({"message": "Transcription and all associated data deleted successfully"}), 200
 
     except OSError as e:
