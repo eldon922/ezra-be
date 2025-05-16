@@ -185,7 +185,6 @@ def process_transcription(transcription_id: str):
             if not success:
                 transcription.status = 'error'
                 db.session.commit()
-                TranscriptionService().stop_vm()
                 raise Exception(f"""Transcription failed: {error}""")
             return txt_path
 
@@ -222,8 +221,6 @@ def process_transcription(transcription_id: str):
 
         transcription.status = 'proofreading'
         db.session.commit()
-        # Stop VM after transcription, must be here because it check the status of transcription.
-        TranscriptionService().stop_vm()
         # Second step: Proofread and generate other formats
         md_path = proofread_text(transcription)
         transcription.md_document_path = md_path

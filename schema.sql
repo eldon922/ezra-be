@@ -136,9 +136,3 @@ VALUES ('active_transcribe_prompt_id', '1', 'The ID of the currently active tran
 
 INSERT INTO system_settings (setting_key, setting_value, description)
 VALUES ('active_proofread_prompt_id', '1', 'The ID of the currently active proofread prompt');
-
-INSERT INTO system_settings (setting_key, setting_value, description)
-VALUES ('transcribing_allowed', 'true', 'Whether transcribing is currently allowed or not');
-
-INSERT INTO system_settings (setting_key, setting_value, description)
-VALUES ('gpu_vm_is_running', 'false', 'Whether GPU VM is currently running or not');

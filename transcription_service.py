@@ -4,6 +4,8 @@ import random
 import time
 from typing import Optional
 
+from flask import jsonify
+
 from models import SystemSetting, TranscribePrompt, Transcription
 import requests
 import os
@@ -14,15 +16,8 @@ class TranscriptionService:
     def __init__(self):
         self.transcribe_api_key = os.environ.get('TRANSCRIBE_API_KEY')
         self.transcribe_api_url = os.environ.get('TRANSCRIBE_API_URL')
-        self.tensordock_api_url = os.environ.get('TENSORDOCK_API_URL')
-        self.tensordock_api_key = os.environ.get('TENSORDOCK_API_KEY')
-        self.tensordock_api_token = os.environ.get('TENSORDOCK_API_TOKEN')
-        self.tensordock_vm_uuid = os.environ.get('TENSORDOCK_VM_UUID')
-
-        self.transcribing_allowed_setting = SystemSetting.query.filter_by(
-            setting_key='transcribing_allowed').first()
-        self.gpu_vm_is_running_setting = SystemSetting.query.filter_by(
-            setting_key='gpu_vm_is_running').first()
+        self.get_result_transcribe_api_url = os.environ.get(
+            'GET_RESULT_TRANSCRIBE_API_URL')
 
     def transcribe(self, output_path: str, transcription: Transcription) -> tuple[bool, str, Optional[str]]:
         """Returns (success, output_path, error_message)"""
@@ -57,163 +52,57 @@ class TranscriptionService:
         transcription.transcribe_prompt = transcribe_prompt.prompt
         db.session.commit()
 
-        while True:
-            db.session.refresh(self.transcribing_allowed_setting)
-            if self.transcribing_allowed_setting.setting_value == 'true':
-                break
-            else:
-                duration = random.randrange(2, 300, 2)
-                logging.info(
-                    f"""There is a running process of transcribe. Retry in {duration} seconds...""")
-                time.sleep(duration)
+        response = requests.post(self.transcribe_api_url,
+                                 json={'transcription_id': str(transcription.id)},
+                                 # files={'audio': open(transcription.audio_file_path, 'rb')},
+                                 headers={"Authorization": "Bearer " +
+                                          self.transcribe_api_key}
+                                 )
+        response_data = response.json()
 
-        self.transcribing_allowed_setting.setting_value = 'false'
-        db.session.commit()
-
-        self._start_vm()
-
-        while True:
-            # Make the POST request to the Flask API
-            try:
-                response = requests.post(
-                    f"""{self.transcribe_api_url}/process""",
-                    data={'transcription_id': transcription.id},
-                    # files={'audio': open(transcription.audio_file_path, 'rb')},
-                    headers={'x-api-key': self.transcribe_api_key}
-                )
-            except Exception as e:
-                duration = random.randrange(2, 61, 2)
-                logging.warning(f"""Error occurred: {
-                                str(e)}. Retrying in {duration} seconds...""")
-                time.sleep(duration)
-                continue
-
-            # Parse response
-            response_data = response.json()
-
-            # Check the response status code
-            if response.status_code == 200:
-                # If request was successful, break out of loop
-                logging.info(response_data.get('message'))
-                break
-            elif response.status_code == 400:
-                # If there's an error with the request, raise it
-                raise ValueError(f"""Inference API Error: {
-                                 response_data.get('error')}""")
-            else:
-                duration = random.randrange(2, 61, 2)
-                # For other status codes, wait and retry
-                logging.warning(f"""Received status code {
-                                response.status_code}. Retrying in {duration} seconds...""")
-                time.sleep(duration)
-                continue
-
-    def _start_vm(self):
-        # Prepare request to TensorDock API v2
-        url = f"https://dashboard.tensordock.com/api/v2/instances/{self.tensordock_vm_uuid}/start"
-        headers = {
-            "Authorization": f"Bearer {self.tensordock_api_token}",
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-        }
-
-        while True:
-            try:
-                db.session.refresh(self.gpu_vm_is_running_setting)
-                if self.gpu_vm_is_running_setting.setting_value == 'true':
-                    logging.info("VM is already running")
-                    return
-
-                # Make request to TensorDock
-                response = requests.post(url, headers=headers)
-
-                if response.status_code == 200:
-                    time.sleep(60)  # Wait for VM to fully start up
-                    self.gpu_vm_is_running_setting.setting_value = 'true'
-                    db.session.commit()
-                    logging.info("VM started successfully")
-                    return
-                elif response.text == 'Instance must be stopped or stopped-disassociated to start':
-                    self.gpu_vm_is_running_setting.setting_value = 'true'
-                    db.session.commit()
-                    logging.info("VM is already running")
-                    return
-                else:
-                    duration = random.randrange(2, 61, 2)
-                    logging.info(response)
-                    logging.info(
-                        f"""Failed to start VM. Retrying in {duration} seconds...""")
-                    time.sleep(duration)
-                    continue
-
-            except requests.exceptions.RequestException as e:
-                duration = random.randrange(70, 140, 2)
-                logging.error(
-                    f"""Failed to communicate with TensorDock API during starting VM. HTTP 500 ({str(e)}). Retrying in {duration} seconds...""")
-                time.sleep(duration)
-                continue
-
-    def stop_vm(self):
-        try:
-            # Prepare request to TensorDock API v2
-            url = f"https://dashboard.tensordock.com/api/v2/instances/{self.tensordock_vm_uuid}/disassociate"
-            headers = {
-                "Authorization": f"Bearer {self.tensordock_api_token}",
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            }
-
-            while True:
-                # Make request to TensorDock
-                response = requests.post(url, headers=headers)
-
-                if response.status_code == 200:
-                    self.gpu_vm_is_running_setting.setting_value = 'false'
-                    db.session.commit()
-                    self.transcribing_allowed_setting.setting_value = 'true'
-                    db.session.commit()
-                    logging.info("VM stopped successfully")
-                    return
-                elif response.text == 'Instance must be running or stopped to disassociate':
-                    self.gpu_vm_is_running_setting.setting_value = 'false'
-                    db.session.commit()
-                    self.transcribing_allowed_setting.setting_value = 'true'
-                    db.session.commit()
-                    logging.info("VM is already stopped")
-                    return
-                else:
-                    logging.info(response)
-                    logging.info(
-                        f"""Failed to stop VM. Retrying in 60 seconds...""")
-                    time.sleep(60)
-                    continue
-
-        except requests.exceptions.RequestException as e:
-            logging.error(
-                f"""Failed to communicate with TensorDock API during stopping VM. HTTP 500 ({str(e)})""")
+        if response.status_code == 200:
+            logging.info(response_data.get('message'))
+        elif response.status_code == 400:
+            raise ValueError(
+                f"""Inference API Error: {response_data.get('error')}""")
 
     def _get_transcription_result(self, transcription_id: str):
-        fetch_url = f"""{
-            self.transcribe_api_url}/gettranscriptionresult/{transcription_id}"""
+        fetch_url = self.get_result_transcribe_api_url
 
+        transcription = Transcription.query.get(transcription_id)
         while True:
             try:
-                time.sleep(60)
+                waiting_time = 10
+                time.sleep(waiting_time)
 
-                response = requests.get(
-                    fetch_url, headers={"x-api-key": self.transcribe_api_key})
+                db.session.refresh(transcription)
 
-                if response.status_code == 200:
-                    # Check if it's a "still in progress" message
-                    if response.headers.get('Content-Type') == 'application/json':
-                        result = response.json()
-                        print(f"""Status: {result.get('message')}""")
+                if transcription.status == 'transcribing' or transcription.status == 'waiting':
+                    print(f"""Status: Transcription {transcription_id} is still in progress""")
+                    continue
+                elif transcription.status == 'waiting_for_proofreading':
+                    response = requests.post(
+                        fetch_url,
+                        json={'transcription_id': str(transcription.id)},
+                        headers={"Authorization": "Bearer " + self.transcribe_api_key})
+
+                    if response.status_code == 200:
+                        # Check if it's a "still in progress" message
+                        if response.headers.get('Content-Type') == 'application/json':
+                            result = response.json()
+                            print(f"""Status: {result.get('message')}""")
+                            continue
+                        else:
+                            # It's a file download - transcription is complete
+                            return response.content
+                    # elif response.status_code == 404 and response.headers.get('Content-Type') == 'application/json' and response.json().get('error') == 'Transcription file not found':
+                    elif response.status_code == 404 and response.json().get('detail') == 'Transcription file not found':
+                        print(f"""Status: {response.json().get('error')}. Trying again in {waiting_time} seconds...""")
                         continue
                     else:
-                        # It's a file download - transcription is complete
-                        return response.content
+                        return f"""Error: {response.status_code} - {response.text}"""
                 else:
-                    return f"""Error: {response.status_code} - {response.text}"""
+                    return jsonify({"error": "Getting transcription failed"}), 400
 
             except Exception as e:
                 return f"""Error occurred: {str(e)}"""
