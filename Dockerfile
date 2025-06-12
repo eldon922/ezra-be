@@ -15,6 +15,13 @@ RUN pip install -r requirements.txt
 
 # Copy the content of the local src directory to the working directory
 COPY . .
-    
+
+# Install ffmpeg and wget
+RUN apk add --no-cache ffmpeg wget
+
+# Install yt-dlp
+RUN wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp && \
+    chmod a+rx /usr/local/bin/yt-dlp
+
 # Specify the command to run on container start
 CMD ["gunicorn", "--timeout", "0", "--threads", "3", "--workers", "3", "-b", "0.0.0.0:5000", "wsgi:app"]

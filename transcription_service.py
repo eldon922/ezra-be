@@ -52,19 +52,52 @@ class TranscriptionService:
         transcription.transcribe_prompt = transcribe_prompt.prompt
         db.session.commit()
 
-        response = requests.post(self.transcribe_api_url,
-                                 json={'transcription_id': str(transcription.id)},
-                                 # files={'audio': open(transcription.audio_file_path, 'rb')},
-                                 headers={"Authorization": "Bearer " +
-                                          self.transcribe_api_key}
-                                 )
-        response_data = response.json()
+        # Check if file exists
+        if not os.path.exists(transcription.audio_file_path):
+            raise FileNotFoundError(
+                f"Audio file not found: {transcription.audio_file_path}")
 
-        if response.status_code == 200:
-            logging.info(response_data.get('message'))
-        elif response.status_code == 400:
-            raise ValueError(
-                f"""Inference API Error: {response_data.get('error')}""")
+        headers = {"Authorization": f"Bearer {self.transcribe_api_key}"}
+        data = {"transcription_id": str(transcription.id)}
+        
+        content_type_map = {
+            '.mp3': 'audio/mpeg',
+            '.wav': 'audio/wav',
+            '.m4a': 'audio/mp4',
+            '.flac': 'audio/flac',
+            '.ogg': 'audio/ogg',
+            '.mp4': 'video/mp4',
+            '.avi': 'video/avi',
+            '.mov': 'video/quicktime'
+        }
+        # Determine content type based on file extension
+        file_extension = os.path.splitext(
+            transcription.audio_file_path)[1].lower()
+        content_type = content_type_map.get(
+            file_extension, 'application/octet-stream')
+
+        try:
+            with open(transcription.audio_file_path, "rb") as audio_file:
+                files = {
+                    "audio": (os.path.basename(transcription.audio_file_path), audio_file, content_type)
+                }
+
+                response = requests.post(
+                    url=self.transcribe_api_url, headers=headers, data=data, files=files)
+
+            response_data = response.json()
+
+            if response.status_code == 200:
+                logging.info(response_data.get('message'))
+            elif response.status_code == 400:
+                raise ValueError(
+                    f"Inference API Error: {response_data.get('error')}")
+            else:
+                raise ValueError(
+                    f"API Error {response.status_code}: {response.text}")
+
+        except Exception as e:
+            raise ValueError(f"Exception occurred during API call: {str(e)}")
 
     def _get_transcription_result(self, transcription_id: str):
         fetch_url = self.get_result_transcribe_api_url
@@ -78,7 +111,8 @@ class TranscriptionService:
                 db.session.refresh(transcription)
 
                 if transcription.status == 'transcribing' or transcription.status == 'waiting':
-                    print(f"""Status: Transcription {transcription_id} is still in progress""")
+                    print(
+                        f"""Status: Transcription {transcription_id} is still in progress""")
                     continue
                 elif transcription.status == 'waiting_for_proofreading':
                     response = requests.post(
@@ -97,7 +131,8 @@ class TranscriptionService:
                             return response.content
                     # elif response.status_code == 404 and response.headers.get('Content-Type') == 'application/json' and response.json().get('error') == 'Transcription file not found':
                     elif response.status_code == 404 and response.json().get('detail') == 'Transcription file not found':
-                        print(f"""Status: {response.json().get('error')}. Trying again in {waiting_time} seconds...""")
+                        print(
+                            f"""Status: {response.json().get('error')}. Trying again in {waiting_time} seconds...""")
                         continue
                     else:
                         return f"""Error: {response.status_code} - {response.text}"""
