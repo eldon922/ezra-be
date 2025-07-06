@@ -106,7 +106,13 @@ class TranscriptionService:
         while True:
             try:
                 waiting_time = 10
-                time.sleep(waiting_time)
+                try:
+                    time.sleep(waiting_time)
+                except Exception as sleep_exc:
+                    logging.warning(f"Sleep interrupted: {sleep_exc}. Waiting {waiting_time} seconds using busy-wait.")
+                    start = time.time()
+                    while time.time() - start < waiting_time:
+                        pass
 
                 db.session.refresh(transcription)
 
