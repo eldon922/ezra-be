@@ -134,7 +134,7 @@ class TranscriptionService:
             except Exception as e:
                 return f"""Error occurred: {str(e)}"""
 
-    def _get_content_type(file_path: str) -> str:
+    def _get_content_type(self, file_path: str) -> str:
         """Returns the content type based on the file extension."""
         content_type_map = {
             # 🎵 Mainstream Audio Formats
