@@ -52,7 +52,7 @@ def login():
     user = User.query.filter_by(username=username).first()
     if user and check_password_hash(user.password, password):
         access_token = create_access_token(
-            identity=username, expires_delta=datetime.timedelta(days=1))
+            identity=username, expires_delta=datetime.timedelta(days=365))
         return jsonify(access_token=access_token, is_admin=user.is_admin), 200
     return jsonify({"msg": "Bad username or password"}), 401
 
