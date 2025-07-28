@@ -15,8 +15,8 @@ CREATE DATABASE ezra_be OWNER ezra_user;
 -- Create Users table
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    username VARCHAR(80) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
     is_admin BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -28,12 +28,12 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE transcriptions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id INTEGER REFERENCES users(id),
-    audio_file_path VARCHAR(255),
-    google_drive_url VARCHAR(255),
-    txt_document_path VARCHAR(255),
-    md_document_path VARCHAR(255),
-    word_document_path VARCHAR(255),
-    status VARCHAR(30) DEFAULT 'uploading',
+    audio_file_path TEXT,
+    google_drive_url TEXT,
+    txt_document_path TEXT,
+    md_document_path TEXT,
+    word_document_path TEXT,
+    status TEXT DEFAULT 'uploading',
     transcribe_prompt TEXT,
     proofread_prompt TEXT,
     inference_duration INTEGER,
@@ -55,7 +55,7 @@ CREATE TABLE error_logs (
 -- Create TranscribePrompts table
 CREATE TABLE transcribe_prompts (
     id SERIAL PRIMARY KEY,
-    version VARCHAR(100) NOT NULL,
+    version TEXT NOT NULL,
     prompt TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -63,7 +63,7 @@ CREATE TABLE transcribe_prompts (
 -- Create ProofreadPrompts table
 CREATE TABLE proofread_prompts (
     id SERIAL PRIMARY KEY,
-    version VARCHAR(100) NOT NULL,
+    version TEXT NOT NULL,
     prompt TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -71,7 +71,7 @@ CREATE TABLE proofread_prompts (
 -- Create SystemSettings table
 CREATE TABLE system_settings (
     id SERIAL PRIMARY KEY,
-    setting_key VARCHAR(100) UNIQUE NOT NULL,
+    setting_key TEXT UNIQUE NOT NULL,
     setting_value TEXT,
     description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

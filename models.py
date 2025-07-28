@@ -6,8 +6,8 @@ class User(db.Model):
     __tablename__ = 'users'
 
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password = db.Column(db.String(255), nullable=False)
+    username = db.Column(db.Text, unique=True, nullable=False)
+    password = db.Column(db.Text, nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime(timezone=True), server_default=db.func.current_timestamp())
     transcriptions = db.relationship('Transcription', back_populates='user')
@@ -26,12 +26,12 @@ class Transcription(db.Model):
 
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    audio_file_path = db.Column(db.String(255))
-    google_drive_url = db.Column(db.String(255))
-    txt_document_path = db.Column(db.String(255))
-    md_document_path = db.Column(db.String(255))
-    word_document_path = db.Column(db.String(255))
-    status = db.Column(db.String(30), default='uploading')
+    audio_file_path = db.Column(db.Text)
+    google_drive_url = db.Column(db.Text)
+    txt_document_path = db.Column(db.Text)
+    md_document_path = db.Column(db.Text)
+    word_document_path = db.Column(db.Text)
+    status = db.Column(db.Text, default='uploading')
     transcribe_prompt = db.Column(db.Text)
     proofread_prompt = db.Column(db.Text)
     inference_duration = db.Column(db.Integer)
@@ -83,7 +83,7 @@ class TranscribePrompt(db.Model):
     __tablename__ = 'transcribe_prompts'
 
     id = db.Column(db.Integer, primary_key=True)
-    version = db.Column(db.String(100), nullable=False)
+    version = db.Column(db.Text, nullable=False)
     prompt = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime(timezone=True), server_default=db.func.current_timestamp())
 
@@ -99,7 +99,7 @@ class ProofreadPrompt(db.Model):
     __tablename__ = 'proofread_prompts'
 
     id = db.Column(db.Integer, primary_key=True)
-    version = db.Column(db.String(100), nullable=False)
+    version = db.Column(db.Text, nullable=False)
     prompt = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime(timezone=True), server_default=db.func.current_timestamp())
 
@@ -115,7 +115,7 @@ class SystemSetting(db.Model):
     __tablename__ = 'system_settings'
 
     id = db.Column(db.Integer, primary_key=True)
-    setting_key = db.Column(db.String(100), unique=True, nullable=False)
+    setting_key = db.Column(db.Text, unique=True, nullable=False)
     setting_value = db.Column(db.Text)
     description = db.Column(db.Text)
     created_at = db.Column(db.DateTime(timezone=True), server_default=db.func.current_timestamp())
