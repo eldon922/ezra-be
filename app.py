@@ -73,12 +73,15 @@ def process_audio():
     db.session.add(transcription)
     db.session.commit()
 
+    gdrive_or_youtube_url = request.form['drive_link']
+    transcription.google_drive_url = gdrive_or_youtube_url
+    db.session.commit()
+
     # Create user-specific directory in volume
     folder_path = os.path.join(
         app.config['AUDIO_FOLDER'], transcription.user.username, str(transcription.id), "")
     os.makedirs(folder_path, exist_ok=True)
 
-    gdrive_or_youtube_url = request.form['drive_link']
     try:
         if 'drive.google.com' in gdrive_or_youtube_url:
             file_path = gdown.download(
@@ -116,11 +119,12 @@ def process_audio():
 """)
             # Update yt-dlp to latest version
             try:
-                subprocess.run(['yt-dlp', '--update'], capture_output=True, text=True, check=True)
+                subprocess.run(['yt-dlp', '--update'],
+                               capture_output=True, text=True, check=True)
             except subprocess.CalledProcessError:
                 # If update fails, continue anyway as yt-dlp might still work
                 pass
-            
+
             # Use yt-dlp executable
             cmd = [
                 'yt-dlp',
@@ -133,9 +137,10 @@ def process_audio():
                 # '--ffmpeg-location', '/usr/bin/ffmpeg',
                 gdrive_or_youtube_url
             ]
-            
+
             try:
-                result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                result = subprocess.run(
+                    cmd, capture_output=True, text=True, check=True)
                 # Get the filename from the output
                 output_lines = result.stdout.strip().split('\n')
                 file_path = None
@@ -143,7 +148,7 @@ def process_audio():
                     if line.strip() and os.path.exists(line.strip()):
                         file_path = line.strip()
                         break
-                
+
                 if not file_path:
                     # If we can't find the exact file, look for any mp3 file in the folder
                     for file in os.listdir(folder_path):
@@ -201,8 +206,6 @@ def process_audio():
     #     return jsonify({"error": "No audio data provided or download failed"}), 400
 
     # transcription.audio_file_path = file_path
-    transcription.google_drive_url = gdrive_or_youtube_url
-    db.session.commit()
 
     executor.submit(process_transcription, transcription.id)
     return jsonify({
@@ -273,7 +276,8 @@ def process_transcription(transcription_id: str):
         def transcribe_audio(transcription: Transcription):
             os.makedirs(os.path.join(
                 app.config['TXT_FOLDER'], transcription.user.username, str(transcription.id)), exist_ok=True)
-            output_path = os.path.join(app.config['TXT_FOLDER'], transcription.user.username, str(transcription.id))
+            output_path = os.path.join(
+                app.config['TXT_FOLDER'], transcription.user.username, str(transcription.id))
 
             # Transcribe only
             success, txt_path, error = TranscriptionService(
@@ -330,7 +334,8 @@ def process_transcription(transcription_id: str):
         # Final update to transcription record
         transcription.status = 'completed'
         db.session.commit()
-        logging.info(f"""Transcription {f"""{Path(transcription.audio_file_path).stem}""" if transcription.audio_file_path else transcription.google_drive_url} completed successfully""")
+        logging.info(
+            f"""Transcription {f"""{Path(transcription.audio_file_path).stem}""" if transcription.audio_file_path else transcription.google_drive_url} completed successfully""")
 
     except Exception as e:
         logging.error(f"""An error occurred: {e}""")
