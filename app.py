@@ -18,6 +18,7 @@ from pandoc_service import PandocService
 from proofreading_service import ProofreadingService
 from transcription_service import TranscriptionService
 import gdown
+from pydub import AudioSegment
 load_dotenv()
 
 logging.basicConfig(
@@ -60,6 +61,26 @@ def login():
 executor = Executor(app)
 
 
+def parse_time_to_seconds(time_str):
+    """Convert time string in format 'hour:minute:second' to total seconds"""
+    if not time_str:
+        return None
+    try:
+        parts = time_str.split(':')
+        if len(parts) == 3:
+            hours, minutes, seconds = map(int, parts)
+            return hours * 3600 + minutes * 60 + seconds
+        elif len(parts) == 2:
+            minutes, seconds = map(int, parts)
+            return minutes * 60 + seconds
+        elif len(parts) == 1:
+            return int(parts[0])  # Just seconds
+        else:
+            return None
+    except (ValueError, IndexError):
+        return None
+
+
 @app.route('/process', methods=['POST'])
 @jwt_required()
 def process_audio():
@@ -74,6 +95,9 @@ def process_audio():
     db.session.commit()
 
     gdrive_or_youtube_url = request.form['drive_link']
+    start_time_str = request.form.get('start_time')  # Format: "hour:minute:second"
+    end_time_str = request.form.get('end_time')      # Format: "hour:minute:second"
+
     transcription.google_drive_url = gdrive_or_youtube_url
     db.session.commit()
 
@@ -172,6 +196,77 @@ def process_audio():
 
     transcription.audio_file_path = file_path
     db.session.commit()
+
+    # Trim audio if start_time or end_time is provided
+    if start_time_str or end_time_str:
+        try:
+            transcription.status = 'trimming'
+            db.session.commit()
+
+            # Parse time strings to seconds
+            start_seconds = parse_time_to_seconds(start_time_str)
+            end_seconds = parse_time_to_seconds(end_time_str)
+
+            # Load audio file - AudioSegment supports many formats via FFmpeg
+            try:
+                audio = AudioSegment.from_file(file_path)
+            except Exception as audio_error:
+                raise Exception(
+                    f"Unsupported audio format or corrupted file: {audio_error}")
+
+            # Convert to milliseconds
+            start_ms = (start_seconds *
+                        1000) if start_seconds is not None else 0
+            end_ms = (end_seconds *
+                      1000) if end_seconds is not None else len(audio)
+
+            # Validate time range
+            if start_ms < 0 or start_ms >= len(audio):
+                raise Exception("Invalid start time")
+
+            if end_ms <= start_ms or end_ms > len(audio):
+                raise Exception("Invalid end time")
+
+            # Trim audio
+            trimmed_audio = audio[start_ms:end_ms]
+
+            # Create trimmed file path with time range format
+            original_path = Path(file_path)
+
+            # Use original time strings, default to "00:00:00" if None
+            start_time_display = start_time_str if start_time_str else "00-00-00"
+            end_time_display = end_time_str if end_time_str else "end"
+            
+            # Replace colons with dashes for Windows compatibility
+            start_time_safe = start_time_display.replace(":", "-")
+            end_time_safe = end_time_display.replace(":", "-")
+            
+            trimmed_filename = f"[TRIMMED_{start_time_safe}_{end_time_safe}] {original_path.name}"
+            trimmed_path = original_path.parent / trimmed_filename
+
+            # Export trimmed audio
+            trimmed_audio.export(trimmed_path, format="mp3")
+
+            # Update transcription with trimmed file path
+            transcription.audio_file_path = str(trimmed_path)
+            db.session.commit()
+
+            logging.info(
+                f"Audio trimmed successfully: {start_time_str} to {end_time_str}")
+
+        except Exception as e:
+            logging.error(f"""An error occurred: {e}""")
+            # Log error
+            error_log = ErrorLog(
+                user_id=transcription.user.id,
+                transcription_id=transcription.id,
+                error_message=str(e),
+                stack_trace=traceback.format_exc()
+            )
+            transcription.status = 'error'
+            db.session.add(error_log)
+            db.session.commit()
+            return {"error": f"Audio trimming failed: {str(e)}"}, 400
 
     # file_path = None
     # drive_url = None
