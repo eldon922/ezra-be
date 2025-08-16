@@ -18,7 +18,6 @@ from pandoc_service import PandocService
 from proofreading_service import ProofreadingService
 from transcription_service import TranscriptionService
 import gdown
-from pydub import AudioSegment
 load_dotenv()
 
 logging.basicConfig(
@@ -278,52 +277,74 @@ def process_transcription(transcription_id: str, start_time_str: str = None, end
                 start_seconds = parse_time_to_seconds(start_time_str)
                 end_seconds = parse_time_to_seconds(end_time_str)
 
-                # Load audio file - AudioSegment supports many formats via FFmpeg
+                # Use FFmpeg directly for memory-efficient audio trimming
                 try:
-                    audio = AudioSegment.from_file(file_path)
-                except Exception as audio_error:
-                    raise Exception(
-                        f"Unsupported audio format or corrupted file: {audio_error}")
+                    # Create trimmed file path with time range format
+                    original_path = Path(file_path)
 
-                # Convert to milliseconds
-                start_ms = (start_seconds *
-                            1000) if start_seconds is not None else 0
-                end_ms = (end_seconds *
-                          1000) if end_seconds is not None else len(audio)
+                    # Use original time strings, default to "00-00-00" if None
+                    start_time_display = start_time_str if start_time_str else "00-00-00"
+                    end_time_display = end_time_str if end_time_str else "end"
+                    
+                    # Replace colons with dashes for Windows compatibility
+                    start_time_safe = start_time_display.replace(":", "-")
+                    end_time_safe = end_time_display.replace(":", "-")
 
-                # Validate time range
-                if start_ms < 0 or start_ms >= len(audio):
-                    raise Exception("Invalid start time")
+                    trimmed_filename = f"[TRIMMED_{start_time_safe}_{end_time_safe}] {original_path.name}"
+                    trimmed_path = original_path.parent / trimmed_filename
 
-                if end_ms <= start_ms or end_ms > len(audio):
-                    raise Exception("Invalid end time")
+                    # Build FFmpeg command for trimming
+                    ffmpeg_cmd = ['ffmpeg', '-y', '-i', file_path]
+                    
+                    if start_seconds is not None:
+                        ffmpeg_cmd.extend(['-ss', str(start_seconds)])
+                    
+                    if end_seconds is not None and start_seconds is not None:
+                        duration = end_seconds - start_seconds
+                        ffmpeg_cmd.extend(['-t', str(duration)])
+                    elif end_seconds is not None:
+                        ffmpeg_cmd.extend(['-t', str(end_seconds)])
+                    
+                    ffmpeg_cmd.extend([
+                        '-c', 'copy',  # Copy without re-encoding for speed
+                        '-avoid_negative_ts', 'make_zero',
+                        str(trimmed_path)
+                    ])
 
-                # Trim audio
-                trimmed_audio = audio[start_ms:end_ms]
+                    # Execute FFmpeg command
+                    result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+                    
+                    if result.returncode != 0:
+                        # Fallback: try with re-encoding if copy fails
+                        ffmpeg_cmd_reencode = ['ffmpeg', '-y', '-i', file_path]
+                        
+                        if start_seconds is not None:
+                            ffmpeg_cmd_reencode.extend(['-ss', str(start_seconds)])
+                        
+                        if end_seconds is not None and start_seconds is not None:
+                            duration = end_seconds - start_seconds
+                            ffmpeg_cmd_reencode.extend(['-t', str(duration)])
+                        elif end_seconds is not None:
+                            ffmpeg_cmd_reencode.extend(['-t', str(end_seconds)])
+                        
+                        ffmpeg_cmd_reencode.extend([
+                            '-c:a', 'libmp3lame',
+                            '-b:a', '192k',
+                            str(trimmed_path)
+                        ])
+                        
+                        result = subprocess.run(ffmpeg_cmd_reencode, capture_output=True, text=True)
+                        if result.returncode != 0:
+                            raise Exception(f"FFmpeg trimming failed: {result.stderr}")
 
-                # Create trimmed file path with time range format
-                original_path = Path(file_path)
+                    # Update transcription with trimmed file path
+                    transcription.audio_file_path = str(trimmed_path)
+                    db.session.commit()
 
-                # Use original time strings, default to "00-00-00" if None
-                start_time_display = start_time_str if start_time_str else "00-00-00"
-                end_time_display = end_time_str if end_time_str else "end"
-                
-                # Replace colons with dashes for Windows compatibility
-                start_time_safe = start_time_display.replace(":", "-")
-                end_time_safe = end_time_display.replace(":", "-")
+                    logging.info(f"Audio trimmed successfully using FFmpeg: {start_time_str} to {end_time_str}")
 
-                trimmed_filename = f"[TRIMMED_{start_time_safe}_{end_time_safe}] {original_path.name}"
-                trimmed_path = original_path.parent / trimmed_filename
-
-                # Export trimmed audio
-                trimmed_audio.export(trimmed_path, format="mp3")
-
-                # Update transcription with trimmed file path
-                transcription.audio_file_path = str(trimmed_path)
-                db.session.commit()
-
-                logging.info(
-                    f"Audio trimmed successfully: {start_time_str} to {end_time_str}")
+                except Exception as trim_error:
+                    raise Exception(f"Audio trimming failed: {trim_error}")
 
             return transcription.audio_file_path
 
