@@ -114,8 +114,10 @@ def process_audio():
     user = User.query.filter_by(username=get_jwt_identity()).first()
 
     gdrive_or_youtube_url = request.form['drive_link']
-    start_time_str = request.form.get('start_time')  # Format: "hour:minute:second"
-    end_time_str = request.form.get('end_time')      # Format: "hour:minute:second"
+
+    # Format: "hh:mm:ss"
+    start_time_str = request.form.get('start_time')
+    end_time_str = request.form.get('end_time')
 
     # Create transcription record with submission data
     transcription = Transcription(
@@ -126,7 +128,8 @@ def process_audio():
     db.session.add(transcription)
     db.session.commit()
 
-    executor.submit(process_transcription, transcription.id, start_time_str, end_time_str)
+    executor.submit(process_transcription, transcription.id,
+                    start_time_str, end_time_str)
     return jsonify({
         "message": "Transcription request is submitted",
         "transcription_id": transcription.id
@@ -150,42 +153,33 @@ def get_transcriptions():
     } for t in transcriptions]), 200
 
 
-@app.route('/download/word/<username>/<transcription_id>/<filename>', methods=['GET'])
+@app.route('/download/<file_type>/<transcription_id>', methods=['GET'])
 @jwt_required()
-def download_word_file(username, transcription_id, filename):
+def download_file(file_type, transcription_id):
     user = User.query.filter_by(username=get_jwt_identity()).first()
-    if (username != user.username):
-        return jsonify({"error": "Unauthorized access"}), 403
 
-    return send_file(os.path.join(app.config['WORD_FOLDER'], user.username, transcription_id, filename), as_attachment=True)
+    # Get the transcription to find the actual filename
+    transcription = Transcription.query.get(transcription_id)
+    if not transcription or transcription.user_id != user.id:
+        return jsonify({"error": "Transcription not found"}), 404
 
-# @app.route('/download/audio/<username>/<transcription_id>/<filename>', methods=['GET'])
-# @jwt_required()
-# def download_audio_file(username, transcription_id, filename):
-#     user = User.query.filter_by(username=get_jwt_identity()).first()
-#     if (username != user.username):
-#         return jsonify({"error": "Unauthorized access"}), 403
+    # Map file types to their corresponding database fields
+    file_type_mapping = {
+        'txt': transcription.txt_document_path,
+        'md': transcription.md_document_path,
+        'word': transcription.word_document_path,
+        'docx': transcription.word_document_path
+    }
 
-#     return send_file(os.path.join(app.config['AUDIO_FOLDER'], user.username, transcription_id, filename), as_attachment=True)
+    if file_type not in file_type_mapping:
+        return jsonify({"error": "Invalid file type"}), 400
 
+    file_path = file_type_mapping[file_type]
 
-@app.route('/download/txt/<username>/<transcription_id>/<filename>', methods=['GET'])
-@jwt_required()
-def download_txt_file(username, transcription_id, filename):
-    user = User.query.filter_by(username=get_jwt_identity()).first()
-    if (username != user.username):
-        return jsonify({"error": "Unauthorized access"}), 403
+    if not file_path or not os.path.exists(file_path):
+        return jsonify({"error": f"{file_type.upper()} file not found"}), 404
 
-    return send_file(os.path.join(app.config['TXT_FOLDER'], user.username, transcription_id, filename), as_attachment=True)
-
-# @app.route('/download/md/<username>/<transcription_id>/<filename>', methods=['GET'])
-# @jwt_required()
-# def download_md_file(username, transcription_id, filename):
-#     user = User.query.filter_by(username=get_jwt_identity()).first()
-#     if (username != user.username):
-#         return jsonify({"error": "Unauthorized access"}), 403
-
-#     return send_file(os.path.join(app.config['MD_FOLDER'], user.username, transcription_id, filename), as_attachment=True)
+    return send_file(file_path, as_attachment=True)
 
 
 def process_transcription(transcription_id: str, start_time_str: str = None, end_time_str: str = None):
@@ -196,7 +190,7 @@ def process_transcription(transcription_id: str, start_time_str: str = None, end
         def download_and_trim_audio(transcription: Transcription, start_time_str: str, end_time_str: str):
             transcription.status = 'uploading'
             db.session.commit()
-            
+
             # Create user-specific directory in volume
             folder_path = os.path.join(
                 app.config['AUDIO_FOLDER'], transcription.user.username, str(transcription.id), "")
@@ -210,7 +204,8 @@ def process_transcription(transcription_id: str, start_time_str: str = None, end
                         gdrive_or_youtube_url, folder_path, fuzzy=True)
                 elif 'youtube.com' in gdrive_or_youtube_url or 'youtu.be' in gdrive_or_youtube_url:
                     # Create cookie.txt if it doesn't exist
-                    cookie_path = os.path.join(app.config['ROOT_FOLDER'], 'cookie.txt')
+                    cookie_path = os.path.join(
+                        app.config['ROOT_FOLDER'], 'cookie.txt')
                     if not os.path.exists(cookie_path):
                         with open(cookie_path, 'w', encoding='utf-8') as f:
                             f.write(YOUTUBE_COOKIES)
@@ -255,11 +250,11 @@ def process_transcription(transcription_id: str, start_time_str: str = None, end
                                     break
                     except subprocess.CalledProcessError as e:
                         raise Exception(f"yt-dlp command failed: {e.stderr}")
-                
+
                 if file_path is None:
                     raise Exception(
                         "Download failed. Please check if the Google Drive link or YouTube URL is valid and publicly accessible.")
-                        
+
             except Exception as e:
                 raise Exception(f"Download failed: {e}")
 
@@ -286,7 +281,7 @@ def process_transcription(transcription_id: str, start_time_str: str = None, end
                     # Use original time strings, default to "00-00-00" if None
                     start_time_display = start_time_str if start_time_str else "00-00-00"
                     end_time_display = end_time_str if end_time_str else "end"
-                    
+
                     # Replace colons with dashes for Windows compatibility
                     start_time_safe = start_time_display.replace(":", "-")
                     end_time_safe = end_time_display.replace(":", "-")
@@ -296,16 +291,16 @@ def process_transcription(transcription_id: str, start_time_str: str = None, end
 
                     # Build FFmpeg command for trimming
                     ffmpeg_cmd = ['ffmpeg', '-y', '-i', file_path]
-                    
+
                     if start_seconds is not None:
                         ffmpeg_cmd.extend(['-ss', str(start_seconds)])
-                    
+
                     if end_seconds is not None and start_seconds is not None:
                         duration = end_seconds - start_seconds
                         ffmpeg_cmd.extend(['-t', str(duration)])
                     elif end_seconds is not None:
                         ffmpeg_cmd.extend(['-t', str(end_seconds)])
-                    
+
                     ffmpeg_cmd.extend([
                         '-c', 'copy',  # Copy without re-encoding for speed
                         '-avoid_negative_ts', 'make_zero',
@@ -313,36 +308,42 @@ def process_transcription(transcription_id: str, start_time_str: str = None, end
                     ])
 
                     # Execute FFmpeg command
-                    result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
-                    
+                    result = subprocess.run(
+                        ffmpeg_cmd, capture_output=True, text=True)
+
                     if result.returncode != 0:
                         # Fallback: try with re-encoding if copy fails
                         ffmpeg_cmd_reencode = ['ffmpeg', '-y', '-i', file_path]
-                        
+
                         if start_seconds is not None:
-                            ffmpeg_cmd_reencode.extend(['-ss', str(start_seconds)])
-                        
+                            ffmpeg_cmd_reencode.extend(
+                                ['-ss', str(start_seconds)])
+
                         if end_seconds is not None and start_seconds is not None:
                             duration = end_seconds - start_seconds
                             ffmpeg_cmd_reencode.extend(['-t', str(duration)])
                         elif end_seconds is not None:
-                            ffmpeg_cmd_reencode.extend(['-t', str(end_seconds)])
-                        
+                            ffmpeg_cmd_reencode.extend(
+                                ['-t', str(end_seconds)])
+
                         ffmpeg_cmd_reencode.extend([
                             '-c:a', 'libmp3lame',
                             '-b:a', '192k',
                             str(trimmed_path)
                         ])
-                        
-                        result = subprocess.run(ffmpeg_cmd_reencode, capture_output=True, text=True)
+
+                        result = subprocess.run(
+                            ffmpeg_cmd_reencode, capture_output=True, text=True)
                         if result.returncode != 0:
-                            raise Exception(f"FFmpeg trimming failed: {result.stderr}")
+                            raise Exception(
+                                f"FFmpeg trimming failed: {result.stderr}")
 
                     # Update transcription with trimmed file path
                     transcription.audio_file_path = str(trimmed_path)
                     db.session.commit()
 
-                    logging.info(f"Audio trimmed successfully using FFmpeg: {start_time_str} to {end_time_str}")
+                    logging.info(
+                        f"Audio trimmed successfully using FFmpeg: {start_time_str} to {end_time_str}")
 
                 except Exception as trim_error:
                     raise Exception(f"Audio trimming failed: {trim_error}")
@@ -392,7 +393,7 @@ def process_transcription(transcription_id: str, start_time_str: str = None, end
 
         # First step: Download and trim audio
         download_and_trim_audio(transcription, start_time_str, end_time_str)
-        
+
         transcription.status = 'waiting'
         db.session.commit()
         # Second step: Transcribe audio

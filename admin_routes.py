@@ -409,30 +409,28 @@ def get_stats():
         "total_errors": total_errors
     }), 200
 
-
-# @admin.route('/download/audio/<username>/<transcription_id>/<filename>', methods=['GET'])
-# @jwt_required()
-# @require_admin
-# def download_audio_file(username, transcription_id, filename):
-#     return send_file(os.path.join(current_app.config['AUDIO_FOLDER'], username, transcription_id, filename), as_attachment=True)
-
-
-@admin.route('/download/txt/<username>/<transcription_id>/<filename>', methods=['GET'])
+@admin.route('/download/<file_type>/<transcription_id>', methods=['GET'])
 @jwt_required()
 @require_admin
-def download_txt_file(username, transcription_id, filename):
-    return send_file(os.path.join(current_app.config['TXT_FOLDER'], username, transcription_id, filename), as_attachment=True)
-
-
-@admin.route('/download/md/<username>/<transcription_id>/<filename>', methods=['GET'])
-@jwt_required()
-@require_admin
-def download_md_file(username, transcription_id, filename):
-    return send_file(os.path.join(current_app.config['MD_FOLDER'], username, transcription_id, filename), as_attachment=True)
-
-
-@admin.route('/download/word/<username>/<transcription_id>/<filename>', methods=['GET'])
-@jwt_required()
-@require_admin
-def download_word_file(username, transcription_id, filename):
-    return send_file(os.path.join(current_app.config['WORD_FOLDER'], username, transcription_id, filename), as_attachment=True)
+def download_file(file_type, transcription_id):
+    transcription = Transcription.query.get(transcription_id)
+    if not transcription:
+        return jsonify({"error": "Transcription not found"}), 404
+    
+    # Map file types to their corresponding database fields
+    file_type_mapping = {
+        'txt': transcription.txt_document_path,
+        'md': transcription.md_document_path,
+        'word': transcription.word_document_path,
+        'docx': transcription.word_document_path
+    }
+    
+    if file_type not in file_type_mapping:
+        return jsonify({"error": "Invalid file type"}), 400
+    
+    file_path = file_type_mapping[file_type]
+    
+    if not file_path or not os.path.exists(file_path):
+        return jsonify({"error": f"{file_type.upper()} file not found"}), 404
+    
+    return send_file(file_path, as_attachment=True)
