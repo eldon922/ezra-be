@@ -231,6 +231,7 @@ def process_transcription(transcription_id: str, start_time_str: str = None, end
                         '--audio-quality', '192K',
                         '--output', folder_path + '%(title)s.%(ext)s',
                         '--cookies', cookie_path,
+                        '--no-playlist',  # Only download the specific video, not the entire playlist
                         # '--ffmpeg-location', '/usr/bin/ffmpeg',
                         gdrive_or_youtube_url
                     ]
