@@ -222,7 +222,6 @@ def process_transcription(transcription_id: str, start_time_str: str = None, end
                         'yt-dlp',
                         '--format', 'bestaudio/best',
                         '--extract-audio',
-                        '--audio-format', 'mp3',
                         '--audio-quality', '192K',
                         '--output', folder_path + '%(title)s.%(ext)s',
                         '--cookies', cookie_path,
@@ -234,18 +233,31 @@ def process_transcription(transcription_id: str, start_time_str: str = None, end
                     try:
                         result = subprocess.run(
                             cmd, capture_output=True, text=True, check=True)
-                        # Get the filename from the output
-                        output_lines = result.stdout.strip().split('\n')
+                        # Get the filename from yt-dlp output (stdout or stderr)
+                        output_lines = (result.stdout + "\n" +
+                                        result.stderr).strip().splitlines()
                         file_path = None
-                        for line in output_lines:
-                            if line.strip() and os.path.exists(line.strip()):
-                                file_path = line.strip()
+                        for raw_line in output_lines:
+                            line = raw_line.strip()
+                            if not line:
+                                continue
+
+                            if '[ExtractAudio]' in line and 'Destination:' in line:
+                                _, destination = line.split('Destination:', 1)
+                                candidate_path = destination.strip().strip('\'"')
+                            else:
+                                candidate_path = line
+
+                            candidate_path = os.path.normpath(
+                                candidate_path.replace('\\', os.sep))
+                            if os.path.exists(candidate_path):
+                                file_path = candidate_path
                                 break
 
                         if not file_path:
                             # If we can't find the exact file, look for any mp3 file in the folder
                             for file in os.listdir(folder_path):
-                                if file.endswith('.mp3'):
+                                if file.endswith('.opus'):
                                     file_path = os.path.join(folder_path, file)
                                     break
                     except subprocess.CalledProcessError as e:
