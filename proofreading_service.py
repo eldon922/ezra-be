@@ -29,7 +29,7 @@ class ProofreadingService:
         # processed_parts.append(response.content[0].text)
         """Process a single part of text asynchronously"""
         response = await self.async_deepseek.chat.completions.create(
-            model="deepseek-chat",
+            model="deepseek-reasoner",
             max_tokens=8192,
             temperature=0,
             messages=[
