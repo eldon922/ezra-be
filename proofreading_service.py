@@ -10,12 +10,12 @@ from openai import AsyncOpenAI, OpenAI
 
 class ProofreadingService:
     def __init__(self):
-        self.anthropic_api_key = os.environ.get('ANTHROPIC_API_KEY')
+        # self.anthropic_api_key = os.environ.get('ANTHROPIC_API_KEY')
         self.deepseek_api_key = os.environ.get('DEEPSEEK_API_KEY')
         self.deepseek_base_url = os.environ.get('DEEPSEEK_BASE_URL')
 
         # Initialize Anthropic
-        self.claude = anthropic.Anthropic(api_key=self.anthropic_api_key)
+        # self.claude = anthropic.Anthropic(api_key=self.anthropic_api_key)
         self.async_deepseek = AsyncOpenAI(api_key=self.deepseek_api_key, base_url=self.deepseek_base_url)
 
     async def process_part(self, part: str, prompt: str) -> str:
